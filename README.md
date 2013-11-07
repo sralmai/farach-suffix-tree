@@ -1,0 +1,1 @@
+Implementation of Farach Suffix Tree algorithm.
