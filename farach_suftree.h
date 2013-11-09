@@ -29,9 +29,9 @@ typedef struct _suffixTreeUnit
     int parent;
 } SuffixTreeUnit;
 
-typedef struct _suffixTreeUnit
+typedef struct _suffixTree
 {
     int n;
     int *lcp;
     int *a;
-}
+} SuffixTree;

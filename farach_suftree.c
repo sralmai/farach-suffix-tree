@@ -6,8 +6,11 @@
 
 /* Variables, constants, methods */
 const int DigitCapacity = 16;
+const int UniqueLetter = 0;
+
 PrefixTree alphabetMapping;
 int inputStringLength;
+int *gtempArray, *oddS, *evenS;
 
 void Initialize(const char *inputFileName);
 void TestSuffixTree(const char *testsInputFileName);
@@ -15,6 +18,8 @@ void TestSuffixTree(const char *testsInputFileName);
 /* -------------- Main logic ---------------- */
 int main(int argc, char **argv)
 {
+    gtempArray = oddS = evenS = NULL;
+
     int res = 0;
     
     if (argc < 2) 
@@ -50,7 +55,7 @@ void debug(const char *s)
 
 void CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput);
 int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput);
-void BuildSuffixTree();
+SuffixTree *BuildSuffixTree(int *s, int n);
 
 void Initialize(const char *inputFileName)
 {
@@ -73,7 +78,7 @@ void Initialize(const char *inputFileName)
     
     CreateAlphabetMapping(ptrFileInput, ptrFileOutput);
     
-    int rank = 0;
+    int rank = UniqueLetter + 1;
     fclose(ptrFileInput);
     fclose(ptrFileOutput);
     
@@ -89,7 +94,8 @@ void Initialize(const char *inputFileName)
     free(stemmedOutputFileName);
     free(transformedOutputFileName);
     
-    BuildSuffixTree(inputString);
+    BuildSuffixTree(inputString, inputStringLength);
+    if (gtempArray) free(gtempArray);
     
     free(inputString);
 }
@@ -137,8 +143,19 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
     printf("transformed input string have %d letters\n", inputStringLength);
     
     char *buffer = malloc(DigitCapacity);
-    int *inputString = malloc(inputStringLength * sizeof *inputString + 1);
-    int c, letter, len, i;
+    int len, i;
+    len = 0;
+    i = inputStringLength;
+    
+    while (i > 0)
+    {
+        i = i >> 1;
+        len ++;
+    }
+    len++;
+    
+    int *inputString = malloc((1 << len) * sizeof *inputString);
+    int c, letter;
     len = i = 0;
     
     while (1)
@@ -167,14 +184,108 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
     
     free(buffer);
     
-    // add unique symbol "-1" at the end of the string
-    inputString[i] = -1;
+    // add unique symbol at the end of the string. It has to be less than the others
+    inputString[i] = UniqueLetter;
     return inputString;
 }
 
-void BuildSuffixTree()
+void RadixSort(int *a, int n, int *s, int j)
+{   
+    int i, maxA = s[a[0]], exp = 1;
+    if (!gtempArray)
+        gtempArray = malloc(n * sizeof *gtempArray);
+    
+    for (i = 1; i < n; i++)
+    {
+        if (s[a[i] + j] > maxA)
+            maxA = s[a[i] + j];
+    }
+
+    while (maxA / exp > 0)
+    {
+        int bucket[10] = { 0 };
+        
+        for (i = 0; i < n; i++)
+            bucket[(s[a[i] + j] / exp) % 10]++;            
+        for (i = 1; i < 10; i++)
+            bucket[i] += bucket[i - 1];
+        for (i = n - 1; i >= 0; i--)
+            gtempArray[--bucket[(s[a[i] + j] / exp) % 10]] = a[i];
+        for (i = 0; i < n; i++)
+            a[i] = gtempArray[i];
+        exp *= 10;
+    }
+}
+
+void BuildTransformedOddS(int *s, int n)
 {
-    //TODO
+    int m = n / 2;
+    if (!oddS)
+        oddS = malloc(m * sizeof *oddS);
+    
+    for (int i = 0; i < m; i++)
+        oddS[i] = 2 * i;
+        
+    RadixSort(oddS, m, s, 0);
+    RadixSort(oddS, m, s, 1);
+    
+    return oddS;
+}
+
+SuffixTree *GetOddTree(int *s, int n)
+{
+    int m = n / 2;
+    BuildTransformedOddS(s, n);
+    SuffixTree *oddSubTree = BuildSuffixTree(oddS, m);
+    
+    SuffixTree *oddTree = calloc(1, sizeof *oddTree);
+    oddTree->a = malloc(m * sizeof *oddTree->a);
+    oddTree->lcp = malloc(m * sizeof *oddTree->lcp);
+    
+    int *a = oddTree->a, 
+        *lcp = oddTree->lcp, 
+        *subA = oddSubTree->a, 
+        *subLcp = oddSubTree->lcp;
+    
+    for (int i = 0; i < m; i++)
+    {
+        a[i] = 2 * subA[i] - 1;
+        lcp[i] = 2 * subLcp[i];
+        if (s[a[i] + 2 * subLcp[i] == s[a[i + 1] + 2 * subLcp[i])
+            lcp[i]++;
+    }
+}
+
+SuffixTree *GetEvenTree(int *s, int n, SuffixTree *oddTree)
+{
+    int m = n / 2;
+    int *evenS = GetTransformedEvenS(s, n, oddTree);
+    SuffixTree *evenSubTree = BuildSuffixTree(evenS, m);
+    
+    SuffixTree *evenTree = calloc(1, sizeof *evenTree);
+    evenTree->a = malloc(m * sizeof *evenTree->a);
+    evenTree->lcp = malloc(m * sizeof *evenTree->lcp);
+    
+    int *a = evenTree->a, 
+        *lcp = evenTree->lcp, 
+        *subA = evenSubTree->a, 
+        *subLcp = evenSubTree->lcp;
+    
+    for (int i = 0; i < m; i++)
+    {
+        a[i] = 2 * subA[i] - 1;
+        lcp[i] = 2 * subLcp[i];
+        if (s[a[i] + 2 * subLcp[i] == s[a[i + 1] + 2 * subLcp[i])
+            lcp[i]++;
+    }    
+}
+
+SuffixTree *BuildSuffixTree(int *s, int n)
+{
+    SuffixTree *oddTree = GetOddTree(s, n);
+    SuffixTree *evenTree = GetEvenTree(s, n, oddTree);
+    
+    return MergeOddAndEvenTrees(s, n, oddTree, evenTree);
 }
 
 void ResizeArray(int **arr, int *len)
