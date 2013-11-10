@@ -10,7 +10,7 @@ const int UniqueLetter = 0;
 
 PrefixTree alphabetMapping;
 int inputStringLength;
-int *gtempArray, *oddS, *evenS;
+int *gtempArray;
 
 void Initialize(const char *inputFileName);
 void TestSuffixTree(const char *testsInputFileName);
@@ -18,7 +18,7 @@ void TestSuffixTree(const char *testsInputFileName);
 /* -------------- Main logic ---------------- */
 int main(int argc, char **argv)
 {
-    gtempArray = oddS = evenS = NULL;
+    gtempArray = NULL;
 
     int res = 0;
     
@@ -78,11 +78,12 @@ void Initialize(const char *inputFileName)
     
     CreateAlphabetMapping(ptrFileInput, ptrFileOutput);
     
-    int rank = UniqueLetter + 1;
+    int rank = 0;
     fclose(ptrFileInput);
     fclose(ptrFileOutput);
     
     CompletePrefixTreeBuild(&alphabetMapping, 0, &rank);
+    UniqueLetter = rank;
     
     ptrFileInput = fopen(stemmedOutputFileName, "r");
     ptrFileOutput = fopen(transformedOutputFileName, "w");
@@ -143,19 +144,9 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
     printf("transformed input string have %d letters\n", inputStringLength);
     
     char *buffer = malloc(DigitCapacity);
-    int len, i;
-    len = 0;
-    i = inputStringLength;
     
-    while (i > 0)
-    {
-        i = i >> 1;
-        len ++;
-    }
-    len++;
-    
-    int *inputString = malloc((1 << len) * sizeof *inputString);
-    int c, letter;
+    int *inputString = malloc((inputStringLength + 1) * sizeof *inputString);
+    int i, c, letter, len;
     len = i = 0;
     
     while (1)
@@ -184,8 +175,8 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
     
     free(buffer);
     
-    // add unique symbol at the end of the string. It has to be less than the others
-    inputString[i] = UniqueLetter;
+    // add unique symbol at the end of the string. It has to be greater than the others
+    inputString[inputStringLength] = UniqueLetter;
     return inputString;
 }
 
@@ -217,30 +208,28 @@ void RadixSort(int *a, int n, int *s, int j)
     }
 }
 
-void BuildTransformedOddS(int *s, int n)
+SuffixTree *GetOddTree(int *s, int n)
 {
-    int m = n / 2;
-    if (!oddS)
-        oddS = malloc(m * sizeof *oddS);
+    int m = (n + 1) / 2;
+    if (m < 2)
+    {
+        //TODO base of recursion
+    }
+    
+    int *oddS = malloc((m + 1) * sizeof *oddS);
     
     for (int i = 0; i < m; i++)
         oddS[i] = 2 * i;
+    oddS[m] = UniqueLetter;
         
-    RadixSort(oddS, m, s, 0);
     RadixSort(oddS, m, s, 1);
+    RadixSort(oddS, m, s, 0);
     
-    return oddS;
-}
-
-SuffixTree *GetOddTree(int *s, int n)
-{
-    int m = n / 2;
-    BuildTransformedOddS(s, n);
     SuffixTree *oddSubTree = BuildSuffixTree(oddS, m);
     
     SuffixTree *oddTree = calloc(1, sizeof *oddTree);
     oddTree->a = malloc(m * sizeof *oddTree->a);
-    oddTree->lcp = malloc(m * sizeof *oddTree->lcp);
+    oddTree->lcp = malloc((m - 1) * sizeof *oddTree->lcp);
     
     int *a = oddTree->a, 
         *lcp = oddTree->lcp, 
@@ -248,35 +237,65 @@ SuffixTree *GetOddTree(int *s, int n)
         *subLcp = oddSubTree->lcp;
     
     for (int i = 0; i < m; i++)
+        a[i] = 2 * subA[i];
+    
+    for (int i = 0; i < m - 1; i++)
     {
-        a[i] = 2 * subA[i] - 1;
         lcp[i] = 2 * subLcp[i];
+        // TODO CHECK borders
+        if (a[i] + 2 * subLcp[i] >= m || a[i + 1] + 2 * subLcp[i] >= m)
+            printf("TODO CHECK borders");
+        else 
         if (s[a[i] + 2 * subLcp[i] == s[a[i + 1] + 2 * subLcp[i])
             lcp[i]++;
     }
+    
+    free(oddSubTree->a);
+    free(oddSubTree->lcp);
+    free(oddSubTree);
+    free(oddS);
+    
+    return oddTree;
 }
 
 SuffixTree *GetEvenTree(int *s, int n, SuffixTree *oddTree)
 {
     int m = n / 2;
-    int *evenS = GetTransformedEvenS(s, n, oddTree);
-    SuffixTree *evenSubTree = BuildSuffixTree(evenS, m);
+    if (m < 2)
+    {
+        //TODO base of recursion
+    }
+    
+    int *evenS = malloc((m + 1) * sizeof *evenS),
+        *oddA = oddTree->a, 
+        *oddLcp = oddTree->lcp;
+        
+    for (int i = 0, j = 0; i < m; i++)
+    {
+        if (oddA[i] > 0)
+            evenS[j++] = oddA[i] - 1;
+    }
+    if (n % 2 == 0)
+        evenS[m - 1] = n - 1;
+        
+    evenS[m] = UniqueLetter;
+        
+    RadixSort(evenS, m, s, 0);
     
     SuffixTree *evenTree = calloc(1, sizeof *evenTree);
     evenTree->a = malloc(m * sizeof *evenTree->a);
-    evenTree->lcp = malloc(m * sizeof *evenTree->lcp);
+    evenTree->lcp = malloc((m - 1) * sizeof *evenTree->lcp);
     
     int *a = evenTree->a, 
-        *lcp = evenTree->lcp, 
-        *subA = evenSubTree->a, 
-        *subLcp = evenSubTree->lcp;
+        *lcp = evenTree->lcp;
     
     for (int i = 0; i < m; i++)
+        a[i] = evenS[i];
+    
+    for (int i = 0; i < m - 1; i++)
     {
-        a[i] = 2 * subA[i] - 1;
-        lcp[i] = 2 * subLcp[i];
-        if (s[a[i] + 2 * subLcp[i] == s[a[i + 1] + 2 * subLcp[i])
-            lcp[i]++;
+        if (s[a[i]] == s[a[i + 1]])
+            lcp[i] = oddLcp[i];
     }    
 }
 
