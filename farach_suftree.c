@@ -2,18 +2,25 @@
 #include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
+
+#include "helpers.h"
+#include "prefix_tree.h"
 #include "farach_suftree.h"
+#include "lca_algo.h"
 
 /* Variables, constants, methods */
 const int DigitCapacity = 16;
-const int UniqueLetter = 0;
+int UniqueLetter = 0;
 
 PrefixTree alphabetMapping;
 int inputStringLength;
 int *gtempArray;
 
 void Initialize(const char *inputFileName);
+void CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput);
+int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput);
 void TestSuffixTree(const char *testsInputFileName);
+void RadixSort(int *a, int n, int *s, int j);
 
 /* -------------- Main logic ---------------- */
 int main(int argc, char **argv)
@@ -47,31 +54,10 @@ out:
     return res;
 }
 
-void debug(const char *s)
-{
-    printf("==> %s\n", s);
-    fflush(stdout);
-}
-
-void CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput);
-int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput);
-SuffixTree *BuildSuffixTree(int *s, int n);
-
 void Initialize(const char *inputFileName)
 {
-    const char stemmedOutputFileNameSuffix[] = "_stemmed";
-    const char transformedOutputFileNameSuffix[] = "_transformed";
-    char *stemmedOutputFileName = NULL;
-    char *transformedOutputFileName = NULL;
-    int len = strlen(inputFileName);
-    
-    stemmedOutputFileName = malloc(len + strlen(stemmedOutputFileNameSuffix) + 1);
-    strcpy(stemmedOutputFileName, inputFileName);
-    strcpy(stemmedOutputFileName + len, stemmedOutputFileNameSuffix);
-    
-    transformedOutputFileName = malloc(len + strlen(transformedOutputFileNameSuffix) + 1);
-    strcpy(transformedOutputFileName, inputFileName);
-    strcpy(transformedOutputFileName + len, transformedOutputFileNameSuffix);
+    char *stemmedOutputFileName = ConcatStrings(inputFileName, "_stemmed");
+    char *transformedOutputFileName = ConcatStrings(inputFileName, "_transformed");
     
     FILE *ptrFileInput = fopen(inputFileName, "r");
     FILE *ptrFileOutput = fopen(stemmedOutputFileName, "w");    
@@ -82,7 +68,7 @@ void Initialize(const char *inputFileName)
     fclose(ptrFileInput);
     fclose(ptrFileOutput);
     
-    CompletePrefixTreeBuild(&alphabetMapping, 0, &rank);
+    CompleteBuildingPrefixTree(&alphabetMapping, 0, &rank);
     UniqueLetter = rank;
     
     ptrFileInput = fopen(stemmedOutputFileName, "r");
@@ -92,13 +78,13 @@ void Initialize(const char *inputFileName)
     fclose(ptrFileInput);
     fclose(ptrFileOutput);
     
-    free(stemmedOutputFileName);
-    free(transformedOutputFileName);
+    MemFree(stemmedOutputFileName);
+    MemFree(transformedOutputFileName);
     
     BuildSuffixTree(inputString, inputStringLength);
-    if (gtempArray) free(gtempArray);
     
-    free(inputString);
+    MemFree(inputString);
+    MemFree(gtempArray);
 }
 
 void CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput)
@@ -136,7 +122,7 @@ void CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput)
             break;
     }    
     printf("number of prefix tree nodes: %d\n", alphabetMapping.count);    
-    free(buffer);    
+    MemFree(buffer);    
 }
 
 int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
@@ -161,7 +147,7 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
         {
             if (len > 0)
             {
-                letter = GetIndexOfLetter(&alphabetMapping, buffer, len);
+                letter = GetIndexOfLetterInPrefixTree(&alphabetMapping, buffer, len);
                 fprintf(ptrFileOutput, "%d\n", letter);
                 
                 inputString[i++] = letter;
@@ -173,11 +159,219 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
             break;
     }
     
-    free(buffer);
+    MemFree(buffer);
     
     // add unique symbol at the end of the string. It has to be greater than the others
     inputString[inputStringLength] = UniqueLetter;
     return inputString;
+}
+
+SuffixTree *GetDegenerateTree()
+{
+    SuffixTree *tree = calloc(1, sizeof *tree);
+    tree->a = malloc(sizeof *tree->a);
+    tree->lcp = malloc(sizeof *tree->lcp);
+    
+    tree->a[0] = 0;
+    tree->lcp[0] = 0;
+    
+    return tree;
+}
+
+void FreeTree(SuffixTree *tree)
+{
+    MemFree(tree->a);
+    MemFree(tree->lcp);
+    MemFree(tree);
+}
+
+SuffixTree *GetOddTree(int *s, int n)
+{
+    int m = (n + 1) / 2;
+    if (m == 1)
+        return GetDegenerateTree();
+    
+    int *oddS = malloc(m * sizeof *oddS);
+    for (int i = 0; i < m; i++)
+        oddS[i] = 2 * i;        
+    RadixSort(oddS, m, s, 1);
+    RadixSort(oddS, m, s, 0);
+    debugArr(oddS, m);
+    
+    int k = 0;
+    int *newS = malloc((m + 1) * sizeof *newS);    
+    for (int i = 0; i < m; i++)
+    {
+        if (i > 0 && (s[oddS[i]] != s[oddS[i - 1]] || s[oddS[i] + 1] != s[oddS[i - 1] + 1]))
+            k ++;
+        newS[oddS[i] / 2] = k;
+    }
+    newS[m] = k;    
+    debugArr(newS, m + 1);
+    
+    SuffixTree *oddSubTree = BuildSuffixTree(newS, m);
+    
+    SuffixTree *oddTree = calloc(1, sizeof *oddTree);
+    oddTree->n = m;
+    //no need to malloc - just use allocated arrays
+    oddTree->a = newS;
+    oddTree->lcp = oddS;
+    
+    int *a = oddTree->a, 
+        *lcp = oddTree->lcp, 
+        *subA = oddSubTree->a, 
+        *subLcp = oddSubTree->lcp;
+    
+    for (int i = 0; i < m; i++)
+        a[i] = 2 * subA[i];
+    
+    for (int i = 0; i < m - 1; i++)
+    {
+        lcp[i] = 2 * subLcp[i];
+        
+        if (a[i] + 2 * subLcp[i] > n || a[i + 1] + 2 * subLcp[i] > n)
+            printf("CHECK borders: %d\n", i);
+        else 
+        
+        if (s[a[i] + 2 * subLcp[i]] == s[a[i + 1] + 2 * subLcp[i]])
+            lcp[i]++;
+    }
+    lcp[m - 1] = 0;
+    
+    MemFree(oddSubTree->a);
+    MemFree(oddSubTree->lcp);
+    MemFree(oddSubTree);
+    
+    debug("oddTree");
+    debugArr(a, m);
+    debugArr(lcp, m - 1);
+    
+    return oddTree;
+}
+
+SuffixTree *GetEvenTree(int *s, int n, SuffixTree *oddTree)
+{
+    int m = n / 2;
+    if (m < 2)
+        return GetDegenerateTree();
+    
+    int *evenS = malloc(m * sizeof *evenS),
+        *oddA = oddTree->a, 
+        *oddLcp = oddTree->lcp;
+        
+    for (int i = 0, j = 0; i < m; i++)
+    {
+        if (oddA[i] > 0)
+            evenS[j++] = oddA[i] - 1;
+    }
+    if (n % 2 == 0)
+        evenS[m - 1] = n - 1;
+        
+    RadixSort(evenS, m, s, 0);
+    debugArr(evenS, m);
+    
+    SuffixTree *evenTree = calloc(1, sizeof *evenTree);
+    evenTree->n = m;
+    evenTree->a = malloc(m * sizeof *evenTree->a);
+    evenTree->lcp = malloc(m * sizeof *evenTree->lcp);
+    
+    int *a = evenTree->a, 
+        *lcp = evenTree->lcp;
+    
+    for (int i = 0; i < m; i++)
+        a[i] = evenS[i];    
+    
+    LcpTable *lcpTable = CreateLcpTable(oddTree);
+    BuildLcpTable(lcpTable);
+        
+    for (int i = 0; i < m - 1; i++)
+        lcp[i] = s[a[i]] == s[a[i + 1]] ? GetLcp(lcpTable, (a[i] + 1)/2, (a[i + 1] + 1)/2) + 1 : 0;
+        
+    lcp[m - 1] = 0;
+    
+    debug("evenTree");
+    debugArr(lcp, m - 1);
+    
+    MemFree(evenS);
+    FreeLcpTable(lcpTable);
+    
+    return evenTree;
+}
+
+SuffixTree *BuildSuffixTree(int *s, int n)
+{
+    if (n > 10)
+    {
+    int x[13] = {1, 2, 1, 1, 1, 2, 2, 1, 2, 2, 2, 1, 3};
+    SuffixTree *oddTree = GetOddTree(x, 12);
+    SuffixTree *evenTree = GetEvenTree(x, 12, oddTree);
+    
+//    return MergeOddAndEvenTrees(s, n, oddTree, evenTree);
+
+    FreeTree(oddTree);
+    FreeTree(evenTree);
+    }
+
+    
+    SuffixTree *tree = calloc(1, sizeof *tree);
+    tree->n = 12;
+    tree->a = malloc(7 * sizeof *tree->a);
+    tree->lcp = malloc(7 * sizeof *tree->lcp);
+    int *a = tree->a, *lcp = tree->lcp;
+    a[0] = 1; a[1] = 0; a[2] = 2; a[3] = 3; a[4] = 5; a[5] = 4; a[6] = 6;
+    lcp[0] = 0; lcp[1] = 1; lcp[2] = 0; lcp[3] = 1; lcp[4] = 0; lcp[5] = 0, lcp[6] = 0;
+    
+    return tree;
+}
+
+void TestSuffixTree(const char *testsInputFileName)
+{
+    FILE *ptrFileInput = fopen(testsInputFileName, "r");     
+    
+    char *buffer = malloc(DigitCapacity);
+    DynamicArray *testString = CreateDynamicArray(1);
+    
+    int c, letter, len;
+    len = 0;
+    
+    while (1)
+    {
+        c = toupper(fgetc(ptrFileInput));
+        
+        if (isalpha(c))
+        {
+            if (len < DigitCapacity)
+                buffer[len ++] = c;
+        }
+        else
+        {
+            if (len > 0)
+            {                
+                letter = GetIndexOfLetterInPrefixTree(&alphabetMapping, buffer, len);
+                
+                AllocateNextIndexInDynamicArray(testString);
+                *TopInDynamicArray(testString) = letter;
+                
+                len = 0;
+            }
+            
+            if (('$' == c || EOF == c) && testString->count > 0)
+            {
+                // TODO
+                testString->count = 0;
+                
+                debug("OK");
+            }
+        }
+        
+        if (EOF == c)
+            break;
+    }
+    
+    MemFree(buffer);
+    FreeDynamicArray(testString);
+    
+    fclose(ptrFileInput);
 }
 
 void RadixSort(int *a, int n, int *s, int j)
@@ -185,7 +379,7 @@ void RadixSort(int *a, int n, int *s, int j)
     int i, maxA = s[a[0]], exp = 1;
     if (!gtempArray)
         gtempArray = malloc(n * sizeof *gtempArray);
-    
+            
     for (i = 1; i < n; i++)
     {
         if (s[a[i] + j] > maxA)
@@ -206,278 +400,4 @@ void RadixSort(int *a, int n, int *s, int j)
             a[i] = gtempArray[i];
         exp *= 10;
     }
-}
-
-SuffixTree *GetOddTree(int *s, int n)
-{
-    int m = (n + 1) / 2;
-    if (m < 2)
-    {
-        //TODO base of recursion
-    }
-    
-    int *oddS = malloc((m + 1) * sizeof *oddS);
-    
-    for (int i = 0; i < m; i++)
-        oddS[i] = 2 * i;
-    oddS[m] = UniqueLetter;
-        
-    RadixSort(oddS, m, s, 1);
-    RadixSort(oddS, m, s, 0);
-    
-    SuffixTree *oddSubTree = BuildSuffixTree(oddS, m);
-    
-    SuffixTree *oddTree = calloc(1, sizeof *oddTree);
-    oddTree->a = malloc(m * sizeof *oddTree->a);
-    oddTree->lcp = malloc((m - 1) * sizeof *oddTree->lcp);
-    
-    int *a = oddTree->a, 
-        *lcp = oddTree->lcp, 
-        *subA = oddSubTree->a, 
-        *subLcp = oddSubTree->lcp;
-    
-    for (int i = 0; i < m; i++)
-        a[i] = 2 * subA[i];
-    
-    for (int i = 0; i < m - 1; i++)
-    {
-        lcp[i] = 2 * subLcp[i];
-        // TODO CHECK borders
-        if (a[i] + 2 * subLcp[i] >= m || a[i + 1] + 2 * subLcp[i] >= m)
-            printf("TODO CHECK borders");
-        else 
-        if (s[a[i] + 2 * subLcp[i] == s[a[i + 1] + 2 * subLcp[i])
-            lcp[i]++;
-    }
-    
-    free(oddSubTree->a);
-    free(oddSubTree->lcp);
-    free(oddSubTree);
-    free(oddS);
-    
-    return oddTree;
-}
-
-SuffixTree *GetEvenTree(int *s, int n, SuffixTree *oddTree)
-{
-    int m = n / 2;
-    if (m < 2)
-    {
-        //TODO base of recursion
-    }
-    
-    int *evenS = malloc((m + 1) * sizeof *evenS),
-        *oddA = oddTree->a, 
-        *oddLcp = oddTree->lcp;
-        
-    for (int i = 0, j = 0; i < m; i++)
-    {
-        if (oddA[i] > 0)
-            evenS[j++] = oddA[i] - 1;
-    }
-    if (n % 2 == 0)
-        evenS[m - 1] = n - 1;
-        
-    evenS[m] = UniqueLetter;
-        
-    RadixSort(evenS, m, s, 0);
-    
-    SuffixTree *evenTree = calloc(1, sizeof *evenTree);
-    evenTree->a = malloc(m * sizeof *evenTree->a);
-    evenTree->lcp = malloc((m - 1) * sizeof *evenTree->lcp);
-    
-    int *a = evenTree->a, 
-        *lcp = evenTree->lcp;
-    
-    for (int i = 0; i < m; i++)
-        a[i] = evenS[i];
-    
-    for (int i = 0; i < m - 1; i++)
-    {
-        if (s[a[i]] == s[a[i + 1]])
-            lcp[i] = oddLcp[i];
-    }    
-}
-
-SuffixTree *BuildSuffixTree(int *s, int n)
-{
-    SuffixTree *oddTree = GetOddTree(s, n);
-    SuffixTree *evenTree = GetEvenTree(s, n, oddTree);
-    
-    return MergeOddAndEvenTrees(s, n, oddTree, evenTree);
-}
-
-void ResizeArray(int **arr, int *len)
-{
-    int *t = realloc(*arr, *len * 2 * sizeof *t);
-    if (t)
-    {
-        *arr = t;
-        *len = *len << 1;
-    }
-}
-
-void TestSuffixTree(const char *testsInputFileName)
-{
-    FILE *ptrFileInput = fopen(testsInputFileName, "r");     
-    
-    char *buffer = malloc(DigitCapacity);
-    int arrayLength = 1;
-    int *testString = NULL;
-    ResizeArray(&testString, &arrayLength);
-    
-    int c, letter, len, i;
-    len = i = 0;
-    
-    while (1)
-    {
-        c = toupper(fgetc(ptrFileInput));
-        
-        if (isalpha(c))
-        {
-            if (len < DigitCapacity)
-                buffer[len ++] = c;
-        }
-        else
-        {
-            if (len > 0)
-            {                
-                letter = GetIndexOfLetter(&alphabetMapping, buffer, len);
-                
-                if (i == arrayLength)
-                    ResizeArray(&testString, &arrayLength);
-                
-                testString[i++] = letter;                
-                len = 0;
-            }
-            
-            if (('$' == c || EOF == c) && i > 0)
-            {
-                // TODO
-                i = 0;
-                
-                debug("OK");
-            }
-        }
-        
-        if (EOF == c)
-            break;
-    }
-    
-    free(buffer);
-    free(testString);
-    
-    fclose(ptrFileInput);
-}
-
-/* ----------- Prefix tree -------------- */
-void InitializePrefixTree(PrefixTree *pTree, int size)
-{
-    debug("initialize prefix tree");
-    
-    pTree->count = 0;
-    pTree->arrLength = size;
-    pTree->units = NULL;
-    
-    pTree->units = malloc(pTree->arrLength * sizeof *pTree->units);
-    if (!pTree->units)
-        debug("bad malloc in InitializePrefixTree");
-    
-    printf("struct size: %d\n", (int)sizeof *pTree->units);
-    
-    GetNextPrefixTreeUnitIndex(pTree);
-}
-
-void FreePrefixTree(PrefixTree *pTree)
-{
-    debug("free prefix tree");
-    
-    pTree->count = 0;
-    pTree->arrLength = 0;
-    if (pTree->units) free(pTree->units);
-}
-
-int GetNextPrefixTreeUnitIndex(PrefixTree *pTree)
-{    
-    int i = pTree->count;
-    if (i == pTree->arrLength)
-    {
-        PrefixTreeUnit *old = NULL;
-        debug("resize array of units");        
-        printf("new size: %d bytes\n", (int) (pTree->arrLength * 2 * sizeof *old));
-
-        old = realloc(pTree->units, 2 * pTree->arrLength * sizeof *pTree->units);
-        if (!old)
-            return -1;
-        
-        pTree->units = old;            
-        pTree->arrLength = pTree->arrLength * 2;        
-    }
-    
-    pTree->units[i].rank = -1;
-    for (int j = 0; j < EngAlphabetCardinality; j++)
-        pTree->units[i].children[j] = -1;        
-    pTree->count++;
-    
-    return i;
-}
-
-void AddLetterToPrefixTree(PrefixTree *pTree, char *s, int len)
-{    
-    int ind = 0;
-    int childUnitIndex = -1;
-    int c;
-    
-    for (int i = 0; i < len; i++)
-    {
-        c = s[i] - 'A';
-        if (c < 0)
-        {
-            debug("c < 0");
-            return;
-        }
-        
-        childUnitIndex = pTree->units[ind].children[c];
-        if (childUnitIndex < 0)
-        {
-            childUnitIndex = GetNextPrefixTreeUnitIndex(pTree);
-            if (childUnitIndex < 0)
-            {
-                debug("childUnitIndex < 0");
-                return;
-            }
-            
-            pTree->units[ind].children[c] = childUnitIndex;
-        }
-        ind = childUnitIndex;
-    }
-    
-    pTree->units[ind].rank = 1;
-}
-
-void CompletePrefixTreeBuild(PrefixTree *pTree, int i, int *rank)
-{    
-    if (1 == pTree->units[i].rank)
-        pTree->units[i].rank = (*rank)++;
-        
-    for (int j = 0; j < EngAlphabetCardinality; j++)
-    {
-        if (pTree->units[i].children[j] >= 0)
-            CompletePrefixTreeBuild(pTree, pTree->units[i].children[j], rank);
-    }
-}
-
-int GetIndexOfLetter(PrefixTree *pTree, char *s, int len)
-{
-    int c, ind = 0;
-    
-    for (int i = 0; i < len; i++)
-    {
-        c = s[i] - 'A';
-        if (pTree->units[ind].children[c] >= 0)
-            ind = pTree->units[ind].children[c];
-        else
-            return -1;
-    }
-    return pTree->units[ind].rank;
 }

@@ -1,28 +1,4 @@
-/* prefix tree */
-
-#define EngAlphabetCardinality 28
-
-typedef struct _prefixTreeUnit
-{
-    int rank;
-    int children[EngAlphabetCardinality];
-} PrefixTreeUnit;
-
-typedef struct _prefixTree
-{
-	int count;
-    int arrLength;
-	PrefixTreeUnit *units;
-} PrefixTree;
-
-void InitializePrefixTree(PrefixTree *pTree, int size);
-void FreePrefixTree(PrefixTree *pTree);
-int GetNextPrefixTreeUnitIndex(PrefixTree *pTree);
-void AddLetterToPrefixTree(PrefixTree *pTree, char *s, int len);
-void CompletePrefixTreeBuild(PrefixTree *pTree, int i, int *rank);
-int GetIndexOfLetter(PrefixTree *pTree, char *s, int len);
-
-/* suffix tree */
+#pragma once
 
 typedef struct _suffixTreeUnit
 {
@@ -35,3 +11,9 @@ typedef struct _suffixTree
     int *lcp;
     int *a;
 } SuffixTree;
+
+SuffixTree *GetDegenerateTree();
+void FreeTree(SuffixTree *tree);
+SuffixTree *GetOddTree(int *s, int n);
+SuffixTree *GetEvenTree(int *s, int n, SuffixTree *oddTree);
+SuffixTree *BuildSuffixTree(int *s, int n);

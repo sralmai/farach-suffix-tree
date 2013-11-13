@@ -3,6 +3,14 @@ LIBS = -lm
 CC = gcc
 CFLAGS = -g -Wall -std=c99 -pedantic-errors
 
+REMOVECOMMAND = rm
+TARGETEXECUTABLE = $(TARGET)
+
+ifeq ($(OS),Windows_NT)
+    REMOVECOMMAND = del
+    TARGETEXECUTABLE = $(TARGET).exe
+endif
+
 .PHONY: test default all clean
 
 test: $(TARGET) tests/huckleberry_finn tests/huckleberry_finn_tests
@@ -23,5 +31,5 @@ $(TARGET): $(OBJECTS)
 	$(CC) $(OBJECTS) -Wall $(LIBS) -o $@
 
 clean:
-	-rm -f *.o
-	-rm -f $(TARGET)
+	$(REMOVECOMMAND) -f *.o
+	$(REMOVECOMMAND) -f $(TARGETEXECUTABLE)
