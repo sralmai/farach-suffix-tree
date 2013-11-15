@@ -74,9 +74,14 @@ void AllocateNextIndexInDynamicArray(DynamicArray *arr)
     }
     arr->count ++;
 }
-inline int *TopInDynamicArray(DynamicArray *arr)
+inline int *LastInDynamicArray(DynamicArray *arr)
 {
     return (arr->a + arr->count - 1);
+}
+void PushToDynamicArray(DynamicArray *arr, int x)
+{
+    AllocateNextIndexInDynamicArray(arr);
+    *LastInDynamicArray(arr) = x;
 }
 void FreeDynamicArray(DynamicArray *arr)
 {

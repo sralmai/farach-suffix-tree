@@ -2,16 +2,16 @@
 
 #define EngAlphabetCardinality 28
 
-typedef struct _prefixTreeUnit
+typedef struct _prefixTreeNode
 {
     int rank;
     int children[EngAlphabetCardinality];
-} PrefixTreeUnit;
+} PrefixTreeNode;
 
 typedef struct _prefixTree
 {
 	int count, capacity;
-	PrefixTreeUnit *units;
+	PrefixTreeNode *nodes;
 } PrefixTree;
 
 void InitializePrefixTree(PrefixTree *pTree, int capacity);

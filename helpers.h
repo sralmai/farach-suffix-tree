@@ -17,4 +17,5 @@ typedef struct _dynamicArray
 DynamicArray *CreateDynamicArray(int capacity);
 void AllocateNextIndexInDynamicArray(DynamicArray *arr);
 int *TopInDynamicArray(DynamicArray *arr);
+void PushToDynamicArray(DynamicArray *arr);
 void FreeDynamicArray(DynamicArray *arr);
