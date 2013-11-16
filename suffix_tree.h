@@ -2,8 +2,10 @@
 
 typedef struct _suffixTreeNode
 {
-    int parent, from, depth, leaf;    
+    int parent, from, depth, leaf;
+    
     int *children;
+    int childrenCount;
 } SuffixTreeNode;
 
 typedef struct _suffixTree

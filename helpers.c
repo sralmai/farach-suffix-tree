@@ -49,6 +49,13 @@ int Log2(int x)
 	return res;
 }
 
+void Swap(void *x, void *y)
+{
+    void *t = x;
+    x = y;
+    y = t;
+}
+
 /* ------------ Resizeable Array ----------- */
 
 DynamicArray *CreateDynamicArray(int capacity)
@@ -83,6 +90,11 @@ void PushToDynamicArray(DynamicArray *arr, int x)
     AllocateNextIndexInDynamicArray(arr);
     *LastInDynamicArray(arr) = x;
 }
+int PopFromDynamicArray(DynamicArray *arr)
+{
+    return arr->a[--(arr->count)];
+}
+
 void FreeDynamicArray(DynamicArray *arr)
 {
     MemFree(arr->a);
