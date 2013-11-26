@@ -166,25 +166,6 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
     return inputString;
 }
 
-SuffixTree *GetDegenerateTree()
-{
-    SuffixTree *tree = calloc(1, sizeof *tree);
-    tree->a = malloc(sizeof *tree->a);
-    tree->lcp = malloc(sizeof *tree->lcp);
-    
-    tree->a[0] = 0;
-    tree->lcp[0] = 0;
-    
-    return tree;
-}
-
-void FreeTree(SuffixTree *tree)
-{
-    MemFree(tree->a);
-    MemFree(tree->lcp);
-    MemFree(tree);
-}
-
 SuffixTree *GetOddTree(int *s, int n)
 {
     int m = (n + 1) / 2;

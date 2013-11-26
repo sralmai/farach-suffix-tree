@@ -4,7 +4,7 @@ typedef struct _dfsPosition
     int *s;
     
     int ind;
-    char c;
+    char c; //todo remove
     SuffixTreeNode *node;
     DynamicArray *lastChild;
 } DfsPosition;
@@ -24,6 +24,13 @@ DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int ind)
     return p;
 }
 
+typedef struct _overMergedTree
+{
+    SuffixTree *tree;
+    
+    DynamicArray *oddEvenNodes;
+} OverMergedTree;
+
 inline SuffixTreeNode *GetCurrentNode(DfsPosition *p)
 {
     return p->tree->nodes[p->ind];
@@ -38,7 +45,7 @@ inline int GetFirstCharOfChildEdge(DfsPosition *p)
 
 int NextStepOfDfs(DfsPosition *p, int minDepth)
 {
-    if (*LastInDynamicArray(p->lastChild) >= p->node->childrenCount)
+    while (*LastInDynamicArray(p->lastChild) >= p->node->childrenCount)
     {
         if (p->node->depth <= minDepth)
             return 0;
@@ -47,8 +54,6 @@ int NextStepOfDfs(DfsPosition *p, int minDepth)
         p->ind = pos->node->parent;
         p->node = GetCurrentNode(p);
         --(p->lastChild->count);
-        
-        return -1;
     }
     
     // move down through next child edge
@@ -71,7 +76,7 @@ int CopyBranchToSuffixTree(SuffixTree *st, int i, DfsPosition *p)
     NextStepOfDfs(p, 0);
     int minDepth = p->node->depth;
     
-    while(action = NextStepOfDfs(p, minDepth)) 
+    while(action = NextStepOfDfs(p, minDepth != p->node->depth ? p->node->depth : minDepth)) 
     {
         if (action > 0)
             i = AppendNodeToSuffixTree(st, i, p, 1);
@@ -80,7 +85,7 @@ int CopyBranchToSuffixTree(SuffixTree *st, int i, DfsPosition *p)
     }
     
     // move position to next downward (node, edge)
-    while (!NextStepOfDfs(p, 0));
+    NextStepOfDfs(p, minDepth);
     
     return i;
 }
@@ -104,39 +109,73 @@ int CompareDfsPositions(DfsPosition **px, DfsPosition **py)
     }
 }
 
-SuffixTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s)
+OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s)
 {    
     SuffixTree *st = GetDegenerateSuffixTree();
     DynamicArray *childrenCountersBuffer = CreateDynamicArray(1), *childrenBuffer = CreateDynamicArray(1);
+    DynamicArray *oddEvenNodes = CreateDynamicArray(1);
+    SuffixTree *otherNodes = GetDegenerateSuffixTree();
     
     DfsPosition *px = CreateDfsPosition(evenTree, s, 0), *py = CreateDfsPosition(oddTree, s, 0);
-    px->c = GetFirstCharOfChildEdge(px);
-    py->c = GetFirstCharOfChildEdge(py);
         
+    //create root node
     int i = InitializeNextNodeInSuffixTree(st, 0, 0, 0, -1);
     PushToDynamicArray(childrenCountersBuffer, 0);
     
     while (!EndOfDfs(px) || !EndOfDfs(py))
     {        
         if (CompareDfsPositions(&px, &py))
+        {
+            // we can copy px branch
             AddChildToBufferAndMakeItCurrent(childrenCountersBuffer, childrenBuffer, CopyBranchToSuffixTree(st, i, px));
+        }
         else
         {
             if (GetEdgeLength(px) < GetEdgeLength(py))
                 Swap(&px, &py);
             
-            if (GetEdgeLength(px) > GetEdgeLength(py))
+            int lx = GetEdgeLength(px), ly = GetEdgeLength(py);
+            if (lx > ly)
             {
-                //insert in tree
+                //insert node in px->tree
+                int child = *LastInDynamicArray(px->lastChild);
+                int from = px->tree->nodes[child].from;
+                int depth = px->node->depth + lx;
+                
+                int newNode = InitializeNextNodeInSuffixTree(px->tree, px->ind, from, depth, -1);
+                px->tree->nodes[child].parent = newNode;
+                px->tree->nodes[child].from = from + depth;
+                
+                *LastInDynamicArray(px->lastChild) = newNode;
             }
             //merge edges
-            k = InitializeNextNodeInSuffixTree(st, );
-            PushToDynamicArray(childrenCountersBuffer, 0);
+            InitializeNextNodeInSuffixTree(otherNodes, i, py->node->from, py->node->depth, py->node->leaf);
+            i = AppendNodeToSuffixTree(st, i, px, 0);
+            AddChildToBufferAndMakeItCurrent(childrenCountersBuffer, childrenBuffer, i);
+            PushToDynamicArray(oddEvenNodes, i);
             
-            px <- child;
-            py <- child;
+            NextStepOfDfs(px, 0);
+            NextStepOfDfs(py, 0);
+        }
+        
+        while (st->nodes[i].depth > px->node->depth && st->nodes[i].depth > py->nodes->depth)
+        {   
+            CompleteNodeConstruction(&st->nodes[i], childrenCountersBuffer, childrenBuffer);
+            i = st->nodes[i].parent;
         }
     }
+    
+    if (i != 0)
+        debug("воу, воу, палехчи");        
+        
+    // complete root's children building
+    CompleteNodeConstruction(&st->nodes[0], childrenCountersBuffer, childrenBuffer);
+    
+    OverMergedTree *res = calloc(1, sizeof *res);
+    res->tree = st;
+    res->oddEvenNodes = oddEvenNodes;
+    
+    return res;
 }
 
 SuffixTree *BuildSuffixTreeForSuffixArray(SuffixArray *suffixArray)
@@ -253,7 +292,7 @@ inline SuffixTreeNode *LastInSuffixTree(SuffixTree *st)
 
 inline int GetEdgeLength(DfsPosition *p)
 {
-    return p->node->depth - p->tree->nodes[p->node->parent].depth;
+    return p->tree->nodes[*LastInDynamicArray(p->lastChild)].depth - p->node->depth;
 }
 
 void InitializeNextNodeInSuffixTree(SuffixTree *st, int parent, int suffixIndex, int depth, int leaf)
@@ -271,7 +310,7 @@ void InitializeNextNodeInSuffixTree(SuffixTree *st, int parent, int suffixIndex,
 
 int AppendNodeToSuffixTree(SuffixTree *st, int parent, DfsPosition *p, int copyChildren)
 {    
-    st->nodes[parent].children[*LastInDynamicArray(p->lastChild)] AllocateNextNodeIndexInSuffixTree(st);
+    st->nodes[parent].children[*LastInDynamicArray(p->lastChild)] = AllocateNextNodeIndexInSuffixTree(st);
     SuffixTreeNode *node = LastInSuffixTree(st);
     
     node->parent = parent;
@@ -280,7 +319,7 @@ int AppendNodeToSuffixTree(SuffixTree *st, int parent, DfsPosition *p, int copyC
     node->leaf = srcNode->leaf;
     
     if (copyChildren)
-        CopyChildrenToNode(node, srcNode->children, srcNode->childrenCount);
+        CopyChildrenToNode(node, NULL, srcNode->childrenCount);
     
     return st->count - 1;
 }
@@ -301,8 +340,11 @@ void CopyChildrenToNode(SuffixTreeNode *node, int *children, int n)
         debug("bad node children malloc");
     
     node->childrenCount = n;
-    for (int i = 0; i < n; ++i)
-        node->children[i] = children[i];
+    if (children)
+    {
+        for (int i = 0; i < n; ++i)
+            node->children[i] = children[i];
+    }
 }
 
 void AddChildToBufferAndMakeItCurrent(DynamicArray *childrenCountersBuffer, DynamicArray *childrenBuffer, int j)

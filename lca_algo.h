@@ -8,6 +8,12 @@ typedef struct _eulerTour
     int *appearance;
 } EulerTour;
 
+typedef struct _eulerTour
+{
+    DynamicArray *dfs;
+    DynamicArray *appearance;
+} EulerTour;
+
 EulerTour *GetEulerTour(SuffixTree *tree);
 void FreeEulerTour(EulerTour *eulerTour);
 
