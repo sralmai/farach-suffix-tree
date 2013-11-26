@@ -9,7 +9,7 @@ typedef struct _dfsPosition
     int ind;
     SuffixTreeNode *node;
     
-    //children indexes in path
+    //children indexes in downward path
     DynamicArray *lastChild;
 } DfsPosition;
 
@@ -42,7 +42,7 @@ int NextStepOfDfs(DfsPosition *p, int minDepth)
         p->node = GetCurrentNode(p);
         PushToDynamicArray(p->lastChild, 0);
     }    
-    //check if we can go downward in next step    
+    // go upward until we can go downward in next step
     while (*LastInDynamicArray(p->lastChild) >= p->node->childrenCount)
     {
         if (p->node->depth <= minDepth)

@@ -173,7 +173,7 @@ OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s
     return omt;
 }
 
-SuffixTree *BuildSuffixTree(OverMergedTree *omt, LcpTable *lcp)
+SuffixTree *BuildSuffixTreeFromOverMergedTree(OverMergedTree *omt, LcpTable *lcp)
 {
     SuffixTree *oddTree = omt->oddTree, *evenTree = omt->evenTree;
     SuffixTree *st = CreateSuffixTree();

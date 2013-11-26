@@ -5,6 +5,7 @@
 
 #include "helpers.h"
 #include "prefix_tree.h"
+#include "suffix_tree.h"
 #include "farach_suftree.h"
 #include "lca_algo.h"
 
@@ -166,42 +167,45 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
     return inputString;
 }
 
-SuffixTree *GetOddTree(int *s, int n)
+// in Farach algorithm it's named "building an odd tree" (because of indexing from 1)
+SuffixTree *GetEvenSuffixTree(int *s, int n)
 {
     int m = (n + 1) / 2;
     if (m == 1)
-        return GetDegenerateTree();
+        return CreateSuffixTree();
     
-    int *oddS = malloc(m * sizeof *oddS);
+    int *evenS = malloc(m * sizeof *evenS);
     for (int i = 0; i < m; i++)
-        oddS[i] = 2 * i;        
-    RadixSort(oddS, m, s, 1);
-    RadixSort(oddS, m, s, 0);
-    debugArr(oddS, m);
+        evenS[i] = 2 * i;        
+    RadixSort(evenS, m, s, 1);
+    RadixSort(evenS, m, s, 0);
+    debugArr(evenS, m);
     
     int k = 0;
     int *newS = malloc((m + 1) * sizeof *newS);    
     for (int i = 0; i < m; i++)
     {
-        if (i > 0 && (s[oddS[i]] != s[oddS[i - 1]] || s[oddS[i] + 1] != s[oddS[i - 1] + 1]))
+        if (i > 0 && (s[evenS[i]] != s[evenS[i - 1]] || s[evenS[i] + 1] != s[evenS[i - 1] + 1]))
             k ++;
-        newS[oddS[i] / 2] = k;
+        newS[evenS[i] / 2] = k;
     }
     newS[m] = k;    
     debugArr(newS, m + 1);
     
-    SuffixTree *oddSubTree = BuildSuffixTree(newS, m);
+    SuffixTree *evenSubTree = BuildSuffixTreeByFarachAlgorithm(newS, m);
+    SuffixArray *evenSubArray = CreateSuffixArrayFromSuffixTree(evenSubTree, ..);
+    FreeSuffixTree(evenSubTree);
     
-    SuffixTree *oddTree = calloc(1, sizeof *oddTree);
-    oddTree->n = m;
+    SuffixArray *evenArray = calloc(1, sizeof *evenArray);
+    evenArray->n = m;
     //no need to malloc - just use allocated arrays
-    oddTree->a = newS;
-    oddTree->lcp = oddS;
+    evenArray->a = newS;
+    evenArray->lcp = evenS;
     
-    int *a = oddTree->a, 
-        *lcp = oddTree->lcp, 
-        *subA = oddSubTree->a, 
-        *subLcp = oddSubTree->lcp;
+    int *a = evenArray->a, 
+        *lcp = evenArray->lcp, 
+        *subA = evenSubTree->a, 
+        *subLcp = evenSubTree->lcp;
     
     for (int i = 0; i < m; i++)
         a[i] = 2 * subA[i];
@@ -211,7 +215,10 @@ SuffixTree *GetOddTree(int *s, int n)
         lcp[i] = 2 * subLcp[i];
         
         if (a[i] + 2 * subLcp[i] > n || a[i + 1] + 2 * subLcp[i] > n)
-            printf("CHECK borders: %d\n", i);
+        {
+            printf("CHECK borders: %d\n", i);            
+            fflush(stdout);
+        }
         else 
         
         if (s[a[i] + 2 * subLcp[i]] == s[a[i + 1] + 2 * subLcp[i]])
@@ -219,50 +226,52 @@ SuffixTree *GetOddTree(int *s, int n)
     }
     lcp[m - 1] = 0;
     
-    MemFree(oddSubTree->a);
-    MemFree(oddSubTree->lcp);
-    MemFree(oddSubTree);
+    SuffixTree *evenTree = CreateSuffixTreeFromSuffixArray(evenArray);
+    evenTree->suffixArray = evenArray;
     
-    debug("oddTree");
+    debug("evenTree");
     debugArr(a, m);
     debugArr(lcp, m - 1);
     
-    return oddTree;
+    FreeSuffixArray(evenSubArray);
+    
+    return evenTree;
 }
 
-SuffixTree *GetEvenTree(int *s, int n, SuffixTree *oddTree)
+// in Farach algorithm it's named "building an even tree" (because of indexing from 1)
+SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
 {
     int m = n / 2;
     if (m < 2)
-        return GetDegenerateTree();
+        return CreateSuffixTree();
     
-    int *evenS = malloc(m * sizeof *evenS),
-        *oddA = oddTree->a, 
-        *oddLcp = oddTree->lcp;
+    int *oddS = malloc(m * sizeof *oddS),
+        *evenA = evenTree->suffixArray->a, 
+        *evenLcp = evenTree->suffixArray->lcp;
         
     for (int i = 0, j = 0; i < m; i++)
     {
-        if (oddA[i] > 0)
-            evenS[j++] = oddA[i] - 1;
+        if (evenA[i] > 0)
+            oddS[j++] = evenA[i] - 1;
     }
     if (n % 2 == 0)
-        evenS[m - 1] = n - 1;
+        oddS[m - 1] = n - 1;
         
-    RadixSort(evenS, m, s, 0);
-    debugArr(evenS, m);
+    RadixSort(oddS, m, s, 0);
+    debugArr(oddS, m);
     
-    SuffixTree *evenTree = calloc(1, sizeof *evenTree);
-    evenTree->n = m;
-    evenTree->a = malloc(m * sizeof *evenTree->a);
-    evenTree->lcp = malloc(m * sizeof *evenTree->lcp);
+    SuffixArray *oddArray = calloc(1, sizeof *oddArray);
+    oddArray->n = m;
+    oddArray->a = malloc(m * sizeof *oddArray->a);
+    oddArray->lcp = malloc(m * sizeof *oddArray->lcp);
     
-    int *a = evenTree->a, 
-        *lcp = evenTree->lcp;
+    int *a = oddArray->a, 
+        *lcp = oddArray->lcp;
     
     for (int i = 0; i < m; i++)
-        a[i] = evenS[i];    
+        a[i] = oddS[i];    
     
-    LcpTable *lcpTable = CreateLcpTable(oddTree);
+    LcpTable *lcpTable = CreateLcpTable(evenTree);
     BuildLcpTable(lcpTable);
         
     for (int i = 0; i < m - 1; i++)
@@ -270,16 +279,19 @@ SuffixTree *GetEvenTree(int *s, int n, SuffixTree *oddTree)
         
     lcp[m - 1] = 0;
     
-    debug("evenTree");
+    SuffixTree *oddTree = CreateSuffixTreeFromSuffixArray(oddArray);
+    oddTree->suffixArray = oddArray;
+    
+    debug("oddTree");
     debugArr(lcp, m - 1);
     
-    MemFree(evenS);
+    MemFree(oddS);
     FreeLcpTable(lcpTable);
     
-    return evenTree;
+    return oddTree;
 }
 
-SuffixTree *BuildSuffixTree(int *s, int n)
+SuffixTree *BuildSuffixTreeByFarachAlgorithm(int *s, int n)
 {
     if (n > 10)
     {
@@ -292,7 +304,6 @@ SuffixTree *BuildSuffixTree(int *s, int n)
     FreeTree(oddTree);
     FreeTree(evenTree);
     }
-
     
     SuffixTree *tree = calloc(1, sizeof *tree);
     tree->n = 12;
@@ -305,6 +316,21 @@ SuffixTree *BuildSuffixTree(int *s, int n)
     return tree;
 }
 
+SuffixTree *BuildSuffixTreeByFarachAlgorithm_Release(int *s, int n)
+{
+    SuffixTree *evenTree = GetEvenSuffixTree(s, n);
+    SuffixTree *oddTree = GetOddSuffixTree(s, n, evenTree);
+    
+    OverMergedTree *omt = OverMergeTrees(evenTree, oddTree, s, n);
+    SuffixTree *st = BuildSuffixTreeFromOverMergedTree(omt);
+    
+    FreeSuffixTree(evenTree);
+    FreeSuffixTree(oddTree);
+    FreeOverMergedTree(omt);
+    
+    return st;
+}
+
 void TestSuffixTree(const char *testsInputFileName)
 {
     FILE *ptrFileInput = fopen(testsInputFileName, "r");     
@@ -312,7 +338,7 @@ void TestSuffixTree(const char *testsInputFileName)
     char *buffer = malloc(DigitCapacity);
     DynamicArray *testString = CreateDynamicArray(1);
     
-    int c, letter, len;
+    int c, len;
     len = 0;
     
     while (1)
@@ -327,12 +353,8 @@ void TestSuffixTree(const char *testsInputFileName)
         else
         {
             if (len > 0)
-            {                
-                letter = GetIndexOfLetterInPrefixTree(&alphabetMapping, buffer, len);
-                
-                AllocateNextIndexInDynamicArray(testString);
-                *TopInDynamicArray(testString) = letter;
-                
+            {
+                PushToDynamicArray(testString, GetIndexOfLetterInPrefixTree(&alphabetMapping, buffer, len));
                 len = 0;
             }
             

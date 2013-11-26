@@ -20,8 +20,8 @@ typedef struct _suffixArray
     int *lcp, *a;
 } SuffixArray;
 
-SuffixArray *GetDegenerateSuffixArray();
+SuffixArray *CreateSuffixArray();
 void FreeSuffixArray(SuffixArray *sa);
 
-SuffixTree *GetDegenerateSuffixTree();
+SuffixTree *CreateSuffixTree();
 void FreeSuffixTree(SuffixTree *st);
