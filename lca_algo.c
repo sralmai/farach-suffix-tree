@@ -4,66 +4,6 @@
 #include "helpers.h"
 #include "lca_algo.h"
 
-EulerTour *GetEulerTour(SuffixTree *tree)
-{
-    debug("create EulerTour: started");
-    
-    int *lcp = tree->lcp;
-    int i, d, n;
-    i = d = 0;
-    n = tree->n;
- 
-    int *appearance = malloc(n * sizeof *appearance);
-    DynamicArray *dfs = CreateDynamicArray(2 * (n + 1));
-                
-    while (i < n)
-    {
-        while (d <= lcp[i])
-        {
-            AllocateNextIndexInDynamicArray(dfs);
-            *TopInDynamicArray(dfs) = d++;
-        }
-        
-        appearance[i] = dfs->count;
-        
-        do
-        {
-            AllocateNextIndexInDynamicArray(dfs);
-            *TopInDynamicArray(dfs) = d--;
-        }
-        while (d >= lcp[i]);        
-        d += 2;
-        
-        i++;
-    }
-    
-    d -= 2;
-    while (d >= 0)
-    {
-        AllocateNextIndexInDynamicArray(dfs);
-        *TopInDynamicArray(dfs) = d--;
-    }
-    
-    debugArr(dfs->a, dfs->count);
-    debugArr(appearance, n);
-    
-    EulerTour *eulerTour = calloc(1, sizeof *eulerTour);
-    eulerTour->n = n;
-    eulerTour->dfs = dfs;
-    eulerTour->appearance = appearance;
-    
-    debug("create EulerTour: finished");
-    return eulerTour;
-}
-
-void FreeEulerTour(EulerTour *eulerTour)
-{
-    debug("free EulerTour: started");
-    MemFree(eulerTour->appearance);
-    FreeDynamicArray(eulerTour->dfs);
-    MemFree(eulerTour);
-    debug("free EulerTour: finished");
-}
 
 int *allocate2D(int ***arr, int n, int m)
 {
@@ -93,34 +33,17 @@ int *allocate3D(int ****arr, int ***arr2d, int n, int m, int k)
 } 
 
 // compares two indices in a
-inline int MinDepth(DynamicArray *dfs, int i, int j) 
+inline int MinDepth(DynamicArray *dfsDepths, int i, int j) 
 {
-	return dfs->a[i] <= dfs->a[j] ? i : j;
+	return dfsDepths->a[i] <= dfsDepths->a[j] ? i : j;
 }
 
-LcpTable *CreateLcpTable(SuffixTree *tree)
+LcaTable *CreateLcaTable(DynamicArray *dfsDepths)
 {
-    debug("create LcpTable: started");
-    
-    int n = tree->n;
-    int *suffixToIndex = malloc(n * sizeof *suffixToIndex);
-    for (int i = 0; i < n; i++)
-        suffixToIndex[tree->a[i] / 2] = i;
-    
-    
-    LcpTable *lcpTable = calloc(1, sizeof *lcpTable);
-    lcpTable->suffixToIndex = suffixToIndex;
-    lcpTable->suffixTree = tree;
-    lcpTable->eulerTour = GetEulerTour(tree);
-    
-    debug("create LcpTable: finished");
-    return lcpTable;
-}
-
-void BuildLcpTable(LcpTable *lcpTable)
-{
+    debug("create LcaTable: started");
+                
     /* 
-        n = dfs array length
+        n = dfsDepths array length
         blockSize = size of block  (Log2(n) upper bounded)
         blocks = blocks count
         sparseTable = array[blocks][Log2(n) + 1] initialized with -1
@@ -128,8 +51,8 @@ void BuildLcpTable(LcpTable *lcpTable)
         rmqTable = array[sqrtN][blockSize][blockSize] initialized with -1
     */
     
-    DynamicArray *dfs = lcpTable->eulerTour->dfs;
-	int n = dfs->count, log2n = Log2(n);
+    LcaTable *lcaTable = calloc(1, sizeof *lcaTable);
+	int n = dfsDepths->count, log2n = Log2(n);
 	int blockSize = (log2n + 1) / 2;
 	int blocks = n / blockSize + (n % blockSize ? 1 : 0);
     int **sparseTable, *sparseTableData;
@@ -144,7 +67,7 @@ void BuildLcpTable(LcpTable *lcpTable)
 			j = 0;
             ++bl;
         }
-		if (sparseTable[bl][0] == -1 || MinDepth(dfs, i, sparseTable[bl][0]) == i)
+		if (sparseTable[bl][0] == -1 || MinDepth(dfsDepths, i, sparseTable[bl][0]) == i)
 			sparseTable[bl][0] = i;
 	}
     
@@ -156,7 +79,7 @@ void BuildLcpTable(LcpTable *lcpTable)
 			if (ni >= blocks)
 				sparseTable[i][j] = sparseTable[i][j - 1];
 			else
-				sparseTable[i][j] = MinDepth(dfs, sparseTable[i][j - 1], sparseTable[ni][j - 1]);
+				sparseTable[i][j] = MinDepth(dfsDepths, sparseTable[i][j - 1], sparseTable[ni][j - 1]);
 		}
     }
 
@@ -173,7 +96,7 @@ void BuildLcpTable(LcpTable *lcpTable)
             ++bl;
         }
         
-		if (j > 0 && (i >= n || MinDepth(dfs, i - 1, i) == i - 1))
+		if (j > 0 && (i >= n || MinDepth(dfsDepths, i - 1, i) == i - 1))
 			blocksHash[bl] += 1 << (j - 1);
             
         if (blocksHash[bl] > smthLikeSqrtN)
@@ -207,7 +130,7 @@ void BuildLcpTable(LcpTable *lcpTable)
                 
 				if (i * blockSize + r < n)
 					rmqTable[id][l][r] =
-						MinDepth(dfs, i * blockSize + rmqTable[id][l][r], i * blockSize + r) - i * blockSize;
+						MinDepth(dfsDepths, i * blockSize + rmqTable[id][l][r], i * blockSize + r) - i * blockSize;
 			}
 		}
 	}
@@ -226,88 +149,73 @@ void BuildLcpTable(LcpTable *lcpTable)
 		precalcLog2[i] = j;
 	}
         
-	lcpTable->blockSize = blockSize;
-    lcpTable->blocks = blocks;
-    lcpTable->sparseTable = sparseTable;
-    lcpTable->sparseTableData = sparseTableData;
-    lcpTable->blocksHash = blocksHash;
-    lcpTable->rmqTable = rmqTable;
-    lcpTable->rmq2dTables = rmq2dTables;
-    lcpTable->rmqTableData = rmqTableData;
-    lcpTable->precalcLog2 = precalcLog2;
+    lcaTable->dfsDepths = dfsDepths;
+	lcaTable->blockSize = blockSize;
+    lcaTable->blocks = blocks;
+    lcaTable->sparseTable = sparseTable;
+    lcaTable->sparseTableData = sparseTableData;
+    lcaTable->blocksHash = blocksHash;
+    lcaTable->rmqTable = rmqTable;
+    lcaTable->rmq2dTables = rmq2dTables;
+    lcaTable->rmqTableData = rmqTableData;
+    lcaTable->precalcLog2 = precalcLog2;
+    
+    debug("create LcaTable: finished");
+    
+    return lcaTable;
 }
 
 // answers RMQ in block #bl [l;r] in O(1)
-inline int GetLcpInBlock(LcpTable *lcpTable, int bl, int l, int r) 
+inline int GetLcaInBlock(LcaTable *lcaTable, int bl, int l, int r) 
 {
-	return lcpTable->rmqTable[lcpTable->blocksHash[bl]][l][r] + bl * lcpTable->blockSize;
+	return lcaTable->rmqTable[lcaTable->blocksHash[bl]][l][r] + bl * lcaTable->blockSize;
 }
 
 // answers LCA in O(1)
-int GetLcp(LcpTable *lcpTable, int v1, int v2) 
-{
-    if (v1 >= lcpTable->suffixTree->n || v2 >= lcpTable->suffixTree->n)
-        return 0;
-        
-    printf("(%d, %d) ", v1, v2);
-    fflush(stdout);
-    
-    int nv1 = lcpTable->suffixToIndex[v1], nv2 = lcpTable->suffixToIndex[v2];
-    printf("(%d, %d) ", nv1, nv2);
-    fflush(stdout);
-    
-	int l = lcpTable->eulerTour->appearance[nv1];
-    int r = lcpTable->eulerTour->appearance[nv2];
-    DynamicArray *dfs = lcpTable->eulerTour->dfs;
-    int blockSize = lcpTable->blockSize;
-        
-	if (l > r)
-    {
-        // swap it
-        int temp = l;
-        l = r;
-        r = temp;
-    }
-    
-    printf("(%d, %d)\n", l, r);
-    fflush(stdout);
-    
+int GetLca(LcaTable *lcaTable, int l, int r) 
+{    
 	int bl = l / blockSize, br = r / blockSize;
     
 	if (bl == br)
-		return dfs->a[GetLcpInBlock(lcpTable, bl, l % blockSize, r % blockSize)];
+		return GetLcaInBlock(lcaTable, bl, l % blockSize, r % blockSize);
         
-	int ans1 = GetLcpInBlock(lcpTable, bl, l % blockSize, blockSize - 1);
-	int ans2 = GetLcpInBlock(lcpTable, br, 0, r % blockSize);
-	int ans = MinDepth(dfs, ans1, ans2);
+	int ans1 = GetLcaInBlock(lcaTable, bl, l % blockSize, blockSize - 1);
+	int ans2 = GetLcaInBlock(lcaTable, br, 0, r % blockSize);
+	int ans = MinDepth(lcaTable->dfsDepths, ans1, ans2);
     
 	if (bl < br - 1) 
     {        
-		int pw2 = lcpTable->precalcLog2[br - bl - 1];
-		int ans3 = lcpTable->sparseTable[bl + 1][pw2];
-		int ans4 = lcpTable->sparseTable[br - (1 << pw2)][pw2];
-		ans = MinDepth(dfs, ans, MinDepth(dfs, ans3, ans4));
+		int pw2 = lcaTable->precalcLog2[br - bl - 1];
+		int ans3 = lcaTable->sparseTable[bl + 1][pw2];
+		int ans4 = lcaTable->sparseTable[br - (1 << pw2)][pw2];
+		ans = MinDepth(
+            lcaTable->dfsDepths, 
+            ans, 
+            MinDepth(lcaTable->dfsDepths, ans3, ans4)
+        );
 	}    
-	return dfs->a[ans];
+	return ans;
 }
 
-void FreeLcpTable(LcpTable *lcpTable)
+inline int GetLcp(LcaTable *lcaTable, int l, int r)
 {
-    debug("free LcpTable: started");
+    return lcaTable->dfsDepths[GetLca(lcaTable, l, r)];
+}
+
+void FreeLcaTable(LcaTable *lcaTable)
+{
+    debug("free LcaTable: started");
     
-    FreeEulerTour(lcpTable->eulerTour);
+    MemFree(lcaTable->sparseTable);
+    MemFree(lcaTable->sparseTableData);
+    MemFree(lcaTable->blocksHash);
+    MemFree(lcaTable->rmqTable);
+    MemFree(lcaTable->rmq2dTables);
+    MemFree(lcaTable->rmqTableData);
+    MemFree(lcaTable->precalcLog2);
+    MemFree(lcaTable);
     
-    MemFree(lcpTable->suffixToIndex);
-    MemFree(lcpTable->sparseTable);
-    MemFree(lcpTable->sparseTableData);
-    MemFree(lcpTable->blocksHash);
-    MemFree(lcpTable->rmqTable);
-    MemFree(lcpTable->rmq2dTables);
-    MemFree(lcpTable->rmqTableData);
-    MemFree(lcpTable->precalcLog2);
-    MemFree(lcpTable);
-    
-    debug("free LcpTable: finished");
+    debug("free LcaTable: finished");
 }
 
 // const int MAXN = 100*1000;

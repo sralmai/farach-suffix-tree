@@ -17,12 +17,6 @@ PrefixTree alphabetMapping;
 int inputStringLength;
 int *gtempArray;
 
-void Initialize(const char *inputFileName);
-void CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput);
-int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput);
-void TestSuffixTree(const char *testsInputFileName);
-void RadixSort(int *a, int n, int *s, int j);
-
 /* -------------- Main logic ---------------- */
 int main(int argc, char **argv)
 {
@@ -113,7 +107,7 @@ void CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput)
             if (len > 0)
             {
                 AddLetterToPrefixTree(&alphabetMapping, buffer, len);
-                inputStringLength++;
+                ++ inputStringLength;
                 len = 0;
                 putc('\n', ptrFileOutput);
             }
@@ -151,7 +145,7 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput)
                 letter = GetIndexOfLetterInPrefixTree(&alphabetMapping, buffer, len);
                 fprintf(ptrFileOutput, "%d\n", letter);
                 
-                inputString[i++] = letter;
+                inputString[i ++] = letter;
                 len = 0;
             }
         }
@@ -175,7 +169,7 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
         return CreateSuffixTree();
     
     int *evenS = malloc(m * sizeof *evenS);
-    for (int i = 0; i < m; i++)
+    for (int i = 0; i < m; ++i)
         evenS[i] = 2 * i;        
     RadixSort(evenS, m, s, 1);
     RadixSort(evenS, m, s, 0);
@@ -183,10 +177,10 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
     
     int k = 0;
     int *newS = malloc((m + 1) * sizeof *newS);    
-    for (int i = 0; i < m; i++)
+    for (int i = 0; i < m; ++i)
     {
         if (i > 0 && (s[evenS[i]] != s[evenS[i - 1]] || s[evenS[i] + 1] != s[evenS[i - 1] + 1]))
-            k ++;
+            ++k;
         newS[evenS[i] / 2] = k;
     }
     newS[m] = k;    
@@ -194,16 +188,10 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
     
     SuffixTree *evenSubTree = BuildSuffixTreeByFarachAlgorithm(newS, m);
     SuffixArray *evenSubArray = CreateSuffixArrayFromSuffixTree(evenSubTree, ..);
-    FreeSuffixTree(evenSubTree);
     
-    SuffixArray *evenArray = calloc(1, sizeof *evenArray);
-    evenArray->n = m;
-    //no need to malloc - just use allocated arrays
-    evenArray->a = newS;
-    evenArray->lcp = evenS;
-    
-    int *a = evenArray->a, 
-        *lcp = evenArray->lcp, 
+    //no need to malloc a and lcp - just use already allocated arrays
+    int *a = newS, 
+        *lcp = lcp, 
         *subA = evenSubTree->a, 
         *subLcp = evenSubTree->lcp;
     
@@ -222,10 +210,11 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
         else 
         
         if (s[a[i] + 2 * subLcp[i]] == s[a[i + 1] + 2 * subLcp[i]])
-            lcp[i]++;
+            ++ lcp[i];
     }
     lcp[m - 1] = 0;
     
+    SuffixArray *evenArray = CreateSuffixArray(lcp, a, m);
     SuffixTree *evenTree = CreateSuffixTreeFromSuffixArray(evenArray);
     evenTree->suffixArray = evenArray;
     
@@ -233,6 +222,7 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
     debugArr(a, m);
     debugArr(lcp, m - 1);
     
+    FreeSuffixTree(evenSubTree);
     FreeSuffixArray(evenSubArray);
     
     return evenTree;
@@ -259,26 +249,32 @@ SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
         
     RadixSort(oddS, m, s, 0);
     debugArr(oddS, m);
-    
-    SuffixArray *oddArray = calloc(1, sizeof *oddArray);
-    oddArray->n = m;
-    oddArray->a = malloc(m * sizeof *oddArray->a);
-    oddArray->lcp = malloc(m * sizeof *oddArray->lcp);
-    
-    int *a = oddArray->a, 
-        *lcp = oddArray->lcp;
+        
+    int *a = malloc(m * sizeof *oddArray->a), 
+        *lcp = malloc(m * sizeof *oddArray->lcp);
     
     for (int i = 0; i < m; i++)
         a[i] = oddS[i];    
+        
     
-    LcpTable *lcpTable = CreateLcpTable(evenTree);
-    BuildLcpTable(lcpTable);
+    int evenN = evenTree->suffixArray->n;
+    int *suffixToRank = malloc(evenN * sizeof *suffixToRank);
+    for (int i = 0; i < evenN; i++)
+        suffixToRank[evenA[i] / 2] = i;
+    
+    SuffixArrayEulerTour *eulerTour = GetSuffixArrayEulerTour(evenTree->suffixArray, suffixToRank);        
+    LcaTable *lcaTable = CreateLcaTable(eulerTour->dfsDepths);
         
     for (int i = 0; i < m - 1; i++)
-        lcp[i] = s[a[i]] == s[a[i + 1]] ? GetLcp(lcpTable, (a[i] + 1)/2, (a[i + 1] + 1)/2) + 1 : 0;
-        
+    {
+        if (s[a[i]] == s[a[i + 1]])
+            lcp[i] = GetLcpForSuffixArray(lcaTable, eulerTour, (a[i] + 1)/2, (a[i + 1] + 1)/2) + 1;
+        else
+            lcp[i] = 0;
+    }        
     lcp[m - 1] = 0;
-    
+        
+    SuffixArray *oddArray = CreateSuffixArray(lcp, a, m);
     SuffixTree *oddTree = CreateSuffixTreeFromSuffixArray(oddArray);
     oddTree->suffixArray = oddArray;
     
@@ -286,7 +282,8 @@ SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
     debugArr(lcp, m - 1);
     
     MemFree(oddS);
-    FreeLcpTable(lcpTable);
+    FreeLcaTable(lcaTable);
+    FreeSuffixArrayEulerTour(eulerTour);
     
     return oddTree;
 }

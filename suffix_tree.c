@@ -12,14 +12,33 @@ SuffixTree *CreateSuffixTree()
 
 void FreeSuffixTree(SuffixTree *st)
 {
-    MemFreeDfs(st);
+    for (int i = 0; i < st->count; i++)
+        MemFree(st->nodes[i].children);
     MemFree(st->nodes);
+    MemFree(st);
 }
 
-SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *suffixArray)
+SuffixArray *CreateSuffixArray(int *lcp, int *a, int n)
 {
-    int n = suffixArray->n;
-    int *lcp = suffixArray->lcp, *a = suffixArray->a;
+    SuffixArray *sa = calloc(1, sizeof *sa);
+    sa->lcp = lcp;
+    sa->a = a;
+    sa->n = n;
+    
+    return sa;
+}
+
+void FreeSuffixArray(SuffixArray *sa)
+{
+    MemFree(sa->lcp);
+    MemFree(sa->a);
+    MemFree(sa);
+}
+
+SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa)
+{
+    int n = sa->n;
+    int *lcp = sa->lcp, *a = sa->a;
     
     SuffixTree *st = CreateSuffixTree();
     DynamicArray *childrenCountersBuffer = CreateDynamicArray(1), *childrenBuffer = CreateDynamicArray(1);
@@ -115,7 +134,7 @@ inline SuffixTreeNode *LastInSuffixTree(SuffixTree *st)
     return (st->nodes + st->count - 1);
 }
 
-inline int GetEdgeLength(DfsPosition *p)
+inline int GetEdgeLength(dfsDepthsPosition *p)
 {
     return p->tree->nodes[*LastInDynamicArray(p->lastChild)].depth - p->node->depth;
 }
@@ -133,7 +152,7 @@ void InitializeNextNodeInSuffixTree(SuffixTree *st, int parent, int suffixIndex,
     return st->count - 1;
 }
 
-int AppendNodeToSuffixTree(SuffixTree *st, int parent, DfsPosition *p, int copyChildren)
+int AppendNodeToSuffixTree(SuffixTree *st, int parent, dfsDepthsPosition *p, int copyChildren)
 {    
     st->nodes[parent].children[*LastInDynamicArray(p->lastChild)] = AllocateNextNodeIndexInSuffixTree(st);
     SuffixTreeNode *node = LastInSuffixTree(st);
@@ -180,4 +199,90 @@ void AddChildToBufferAndMakeItCurrent(DynamicArray *childrenCountersBuffer, Dyna
     
     //initialize new counter for this child
     PushToDynamicArray(childrenCountersBuffer, 0):
+}
+
+
+// --------------------------EULER TOUR FOR SUFFIX ARRAY -----------------------
+SuffixArrayEulerTour *CreateSuffixArrayEulerTour(int n, DynamicArray *dfsDepths, int *rankToDfsDepths, int *suffixToRank)
+{    
+    SuffixArrayEulerTour *eulerTour = calloc(1, sizeof *eulerTour);
+    eulerTour->n = n;
+    eulerTour->dfsDepths = dfsDepths;
+    eulerTour->rankToDfsDepths = rankToDfsDepths;
+    eulerTour->suffixToRank = suffixToRank;
+}
+
+void FreeSuffixArrayEulerTour(SuffixArrayEulerTour *eulerTour)
+{
+    debug("free EulerTour: started");
+    MemFree(eulerTour->rankToDfsDepths);
+    FreeDynamicArray(eulerTour->dfsDepths);
+    MemFree(eulerTour->suffixToRank);
+    MemFree(eulerTour);
+    debug("free EulerTour: finished");
+}
+
+SuffixArrayEulerTour *GetSuffixArrayEulerTour(SuffixArray *sa, int *suffixToRank)
+{
+    debug("create EulerTour for SuffixArray: started");
+    
+    int *lcp = sa->lcp;
+    int i, d, n;
+    i = d = 0;
+    n = sa->n;
+ 
+    int *rankToDfsDepths = malloc(n * sizeof *rankToDfsDepths);
+    DynamicArray *dfsDepths = CreateDynamicArray(2 * (n + 1));
+                
+    while (i < n)
+    {
+        while (d <= lcp[i])
+        {
+            AllocateNextIndexInDynamicArray(dfsDepths);
+            *TopInDynamicArray(dfsDepths) = d++;
+        }        
+        rankToDfsDepths[i] = dfsDepths->count;        
+        do
+        {
+            AllocateNextIndexInDynamicArray(dfsDepths);
+            *TopInDynamicArray(dfsDepths) = d--;
+        }
+        while (d >= lcp[i]);        
+        d += 2;        
+        ++i;
+    }
+    
+    d -= 2;
+    while (d >= 0)
+    {
+        AllocateNextIndexInDynamicArray(dfsDepths);
+        *TopInDynamicArray(dfsDepths) = d--;
+    }
+    
+    debugArr(dfsDepths->a, dfsDepths->count);
+    debugArr(rankToDfsDepths, n);
+    
+    debug("create EulerTour for SuffixArray: finished");
+    
+    return CreateSuffixArrayEulerTour(n, dfsDepths, rankToDfsDepths, suffixToRank);
+}
+
+int GetLcpForSuffixArray(LcaTable *lcaTable, SuffixArrayEulerTour *eulerTour, int v1, int v2) 
+{
+    if (v1 >= eulerTour->n || v2 >= eulerTour->n)
+        return 0;
+        
+    printf("(%d, %d) ", v1, v2);
+    fflush(stdout);
+    
+    int nv1 = eulerTour->suffixToRank[v1], nv2 = eulerTour->suffixToRank[v2];
+    printf("(%d, %d) ", nv1, nv2);
+    fflush(stdout);
+    
+	int l = eulerTour->rankToDfsDepths[nv1];
+    int r = eulerTour->rankToDfsDepths[nv2];        
+	if (l > r)
+        Swap(&l, &r);
+        
+    return GetLcp(lcaTable, l, r);
 }

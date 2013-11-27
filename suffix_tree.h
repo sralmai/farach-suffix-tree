@@ -20,8 +20,9 @@ typedef struct _suffixArray
     int *lcp, *a;
 } SuffixArray;
 
-SuffixArray *CreateSuffixArray();
-void FreeSuffixArray(SuffixArray *sa);
-
-SuffixTree *CreateSuffixTree();
-void FreeSuffixTree(SuffixTree *st);
+typedef struct _eulerTour
+{
+    int n;
+    DynamicArray *dfsDepths;
+    int *rankToDfs, suffixToRank;
+} EulerTour;
