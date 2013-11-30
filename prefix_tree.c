@@ -1,6 +1,7 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+
 #include "helpers.h"
 #include "prefix_tree.h"
 
@@ -12,11 +13,11 @@ void InitializePrefixTree(PrefixTree *pTree, int capacity)
     
     pTree->count = 0;
     pTree->capacity = capacity;
-    pTree->units = malloc(capacity * sizeof *pTree->units);
-    if (!pTree->units)
+    pTree->nodes = malloc(capacity * sizeof *pTree->nodes);
+    if (!pTree->nodes)
         debug("bad malloc in InitializePrefixTree");
     else
-        printf("struct size: %d\n", (int)sizeof *pTree->units);
+        printf("struct size: %d\n", (int)sizeof *pTree->nodes);
     
     AllocateNextIndexInPrefixTree(pTree);
 }
@@ -27,7 +28,7 @@ void FreePrefixTree(PrefixTree *pTree)
     
     pTree->count = 0;
     pTree->capacity = 0;
-    MemFree(pTree->units);
+    MemFree(pTree->nodes);
 }
 
 void AllocateNextIndexInPrefixTree(PrefixTree *pTree)
@@ -35,27 +36,26 @@ void AllocateNextIndexInPrefixTree(PrefixTree *pTree)
     int i = pTree->count;
     if (i == pTree->capacity)
     {        
-        PrefixTreeUnit *t = realloc(pTree->units, 2 * pTree->capacity * sizeof *pTree->units);
+        PrefixTreeNode *t = realloc(pTree->nodes, 2 * pTree->capacity * sizeof *pTree->nodes);
         if (t)
         {
-            pTree->units = t;
+            pTree->nodes = t;
             pTree->capacity = pTree->capacity << 1;
-            printf("==> new units array size: %d bytes\n", (int)(pTree->capacity * sizeof *t));
         }
         else
-            debug("bad units realloc");
+            debug("bad prefix tree nodes realloc");
     }
     
-    pTree->units[i].rank = -1;
+    pTree->nodes[i].rank = -1;
     for (int j = 0; j < EngAlphabetCardinality; j++)
-        pTree->units[i].children[j] = -1;
+        pTree->nodes[i].children[j] = -1;
     pTree->count++;
 }
 
 void AddLetterToPrefixTree(PrefixTree *pTree, char *s, int n)
 {    
     int ind = 0;
-    int childUnitIndex = -1;
+    int childIndex = -1;
     int c;
     
     for (int i = 0; i < n; i++)
@@ -63,29 +63,29 @@ void AddLetterToPrefixTree(PrefixTree *pTree, char *s, int n)
         c = s[i] - 'A';
         assert(c >= 0);
         
-        childUnitIndex = pTree->units[ind].children[c];
-        if (childUnitIndex < 0)
+        childIndex = pTree->nodes[ind].children[c];
+        if (childIndex < 0)
         {
-            childUnitIndex = pTree->count;
+            childIndex = pTree->count;
             AllocateNextIndexInPrefixTree(pTree);
             
-            pTree->units[ind].children[c] = childUnitIndex;
+            pTree->nodes[ind].children[c] = childIndex;
         }
-        ind = childUnitIndex;
+        ind = childIndex;
     }
     
-    pTree->units[ind].rank = 1;
+    pTree->nodes[ind].rank = 1;
 }
 
 void CompleteBuildingPrefixTree(PrefixTree *pTree, int i, int *rank)
 {    
-    if (1 == pTree->units[i].rank)
-        pTree->units[i].rank = (*rank)++;
+    if (1 == pTree->nodes[i].rank)
+        pTree->nodes[i].rank = (*rank)++;
         
     for (int j = 0; j < EngAlphabetCardinality; j++)
     {
-        if (pTree->units[i].children[j] >= 0)
-            CompleteBuildingPrefixTree(pTree, pTree->units[i].children[j], rank);
+        if (pTree->nodes[i].children[j] >= 0)
+            CompleteBuildingPrefixTree(pTree, pTree->nodes[i].children[j], rank);
     }
 }
 
@@ -98,10 +98,10 @@ int GetIndexOfLetterInPrefixTree(PrefixTree *pTree, char *s, int n)
         c = s[i] - 'A';
         assert(c >= 0);
         
-        if (pTree->units[ind].children[c] >= 0)
-            ind = pTree->units[ind].children[c];
+        if (pTree->nodes[ind].children[c] >= 0)
+            ind = pTree->nodes[ind].children[c];
         else
             return -1;
     }
-    return pTree->units[ind].rank;
+    return pTree->nodes[ind].rank;
 }

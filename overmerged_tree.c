@@ -1,19 +1,11 @@
-typedef struct _overMegedTreeNode
-{
-    int parent;
-    int oddIndex, evenIndex;
-    
-    int *children;
-    int childrenCount;
-    
-    SuffixTree *evenTree, *oddTree;
-} OverMergedTreeNode;
+#include <stdlib.h>
+#include <stdio.h>
+#include "overmerged_tree.h"
 
-typedef struct _overMegedTree
-{
-    int count, capacity;
-    OverMergedTreeNode *nodes;
-} OverMergedTree;
+
+/* --------- internal methods ---------- */
+OverMergedTree *CreateOverMergedTree();
+/* ------------------------------------- */
 
 OverMergedTree *CreateOverMergedTree()
 {
@@ -21,17 +13,23 @@ OverMergedTree *CreateOverMergedTree()
     omt->count = 0;
     omt->capacity = 1;
     omt->nodes = malloc(omt->capacity * sizeof *omt->nodes);
-    if (!omt->nodes)
-        debug("bad nodes malloc in OverMergeTrees");        
-    AllocateNextNodeIndexInOverMergedTree(omt);    
     
+    if (!omt->nodes)
+        debug("bad nodes malloc in OverMergeTrees");
+            
     return omt;
 }
 
 void FreeOverMergedTree(OverMergedTree *omt)
 {
-    MemFreeDfs(omt);
+    debug("free OverMergedTree: started");
+    for (int i = 0; i < omt->count; i++)
+        MemFree(omt->nodes[i].children);
+    
+    FreeOverMergedTreeEulerTour(omt->eulerTour);
     MemFree(omt->nodes);
+    MemFree(omt);
+    debug("free OverMergedTree: finished");
 }
 
 int AllocateNextNodeIndexInOverMergedTree(OverMergedTree *omt)
@@ -39,24 +37,25 @@ int AllocateNextNodeIndexInOverMergedTree(OverMergedTree *omt)
     int i = omt->count;
     if (i == omt->capacity)
     {        
-        OverMergedTreeNode *t = realloc(omt->nodes, 2 * omt->capacity * sizeof *omt->units);
+        OverMergedTreeNode *t = realloc(omt->nodes, 2 * omt->capacity * sizeof *omt->nodes);
         if (t)
         {
-            omt->units = t;
+            omt->nodes = t;
             omt->capacity = omt->capacity << 1;
         }
         else
-            debug("bad overmerged tree units realloc");
+            debug("bad overmerged tree nodes realloc");
     }
     omt->nodes[i].children = NULL;
     ++omt->count;
+    
     return i;
 }
 
 int AppendNodeToOverMergedTree(OverMergedTree *omt, int parent, DfsPosition *px, DfsPosition *py)
 {    
     int nodeIndex = AllocateNextNodeIndexInOverMergedTree(omt);
-    OverMergedTreeNode *node = omt->nodes[nodeIndex];
+    OverMergedTreeNode *node = &(omt->nodes[nodeIndex]);
     node->parent = parent;
     node->depth = px->node->depth;
     
@@ -73,9 +72,38 @@ int AppendNodeToOverMergedTree(OverMergedTree *omt, int parent, DfsPosition *px,
     return nodeIndex;
 }
 
-inline int GetOddOrEvenIndex(OverMergedTree *omt, int i)
+void SetSuffixesToDfs(SuffixTreeNode *node, SuffixArray *sa, int *suffixToDfs, int dfsIndex, int *leftChild)
 {
-    return omt->nodes[i].evenIndex != -1 ? omt->nodes[i].evenIndex : omt->nodes[i].oddTree;
+    if (-1 == *leftChild)
+        *leftChild = 0;
+    
+    int rightChild = NULL == node ? sa->n : node->from - node->depth;
+    
+    while (*leftChild < rightChild)
+    {
+        suffixToDfs[sa->a[*leftChild]] = dfsIndex;
+        ++(*leftChild);
+    }
+}
+
+void CompleteOverMergedTreeNodeConstruction(OverMergedTreeNode *node, DynamicArray *childrenCountersBuffer, DynamicArray *childrenBuffer)
+{
+    int childrenCount = node->childrenCount = *LastInDynamicArray(childrenCountersBuffer);
+    childrenBuffer->count -= childrenCount;
+    
+    if (childrenCount > 0)
+    {
+        int *children = &childrenBuffer->a[childrenBuffer->count];
+        
+        node->children = malloc(childrenCount * sizeof *children);
+        if (!node->children)
+            debug("bad node children malloc");
+        
+        for (int i = 0; i < childrenCount; ++i)
+            node->children[i] = children[i];
+    }
+    
+    --(childrenCountersBuffer->count);
 }
 
 OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s, int n)
@@ -86,18 +114,21 @@ OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s
     DfsPosition *px = CreateDfsPosition(evenTree, s, 0, 0), *py = CreateDfsPosition(oddTree, s, 0, 1);
     
     // euler tour structures
-    DynamicArray *dfsToIndex = CreateDynamicArray(1), *dfs = CreateDfsPosition(1);
-    int *appearance = malloc(n * sizeof *appearance);
+    DynamicArray *dfsToNode = CreateDynamicArray(1), *dfsDepths = CreateDynamicArray(1);
+    
+    int *suffixToDfs = malloc(n * sizeof *suffixToDfs);
+    int evenLeftChild, oddLeftChild;
     int depth = 0;
+    evenLeftChild = oddLeftChild = -1;
     // ---------------------
         
     // create root node
     int i = AppendNodeToOverMergedTree(omt, 0, px, py), oddEvenNodesCount = 0;
     PushToDynamicArray(childrenCountersBuffer, 0);
     
-    // put root to odd/even for clarity
-    PushToDynamicArray(dfs, depth++);
-    PushToDynamicArray(dfsToIndex, i);
+    // put root for clarity
+    PushToDynamicArray(dfsDepths, depth++);
+    PushToDynamicArray(dfsToNode, i);
     // --------------------------------
     
     while (!EndOfDfs(px) || !EndOfDfs(py))
@@ -109,15 +140,28 @@ OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s
             AddChildToBufferAndMakeItCurrent(childrenCountersBuffer, childrenBuffer, i);            
             
             // px children hack
-            NextStepOfDfs(px);
+            NextStepOfDfs(px, 0);
             *LastInDynamicArray(px->lastChild) = px->node->childrenCount;
-            NextStepOfDfs(px);
+            NextStepOfDfs(px, 0);
             // now it point to next step after child we've added, i.e. we skipped whole inner branch
             
             // this node is root of subbranch of odd or even tree
-            appearance[GetOddOrEvenIndex(omt, i)] = i;
-            PushToDynamicArray(dfs, depth++);
-            PushToDynamicArray(dfsToIndex, i);
+            if (omt->nodes[i].evenIndex != -1)
+            {
+                SetSuffixesToDfs(
+                    &(evenTree->nodes[omt->nodes[i].evenIndex]), 
+                    evenTree->suffixArray, suffixToDfs, dfsDepths->count, &evenLeftChild
+                );
+            }
+            else
+            {
+                SetSuffixesToDfs(
+                    &(evenTree->nodes[omt->nodes[i].oddIndex]), 
+                    oddTree->suffixArray, suffixToDfs, dfsDepths->count, &oddLeftChild
+                );
+            }
+            PushToDynamicArray(dfsDepths, depth++);
+            PushToDynamicArray(dfsToNode, i);
             // -----------------------------------------------------------
         }
         else
@@ -125,14 +169,12 @@ OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s
             int lx = GetEdgeLength(px), ly = GetEdgeLength(py);
             
             if (lx < ly)
-            {
                 Swap(&px, &py);
-                Swap(&lx, &ly);
-            }
                         
-            if (lx > ly)
+            if (lx != ly)
             {
-                //insert node in px->tree
+                // lx < ly
+                // insert node in px->tree
                 BreakSuffixTreeEdgeByCustomLength(px->tree, px->ind, *LastInDynamicArray(px->lastChild), ly);
             }
             
@@ -142,8 +184,8 @@ OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s
             oddEvenNodesCount++;
             
             // added node is odd/even ==> don't touch appearance
-            PushToDynamicArray(dfs, depth++);
-            PushToDynamicArray(dfsToIndex, i);
+            PushToDynamicArray(dfsDepths, depth++);
+            PushToDynamicArray(dfsToNode, i);
             // -------------------------------------------------
             
             NextStepOfDfs(px, 0);
@@ -151,51 +193,139 @@ OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s
         }
         
         
-        while (omt->nodes[i].depth > px->node->depth && omt->nodes[i].depth > py->nodes->depth)
+        while (omt->nodes[i].depth > px->node->depth && omt->nodes[i].depth > py->node->depth)
         {   
-            CompleteNodeConstruction(&omt->nodes[i], childrenCountersBuffer, childrenBuffer);
+            CompleteOverMergedTreeNodeConstruction(&(omt->nodes[i]), childrenCountersBuffer, childrenBuffer);
             i = omt->nodes[i].parent;
             
             // go upward
-            PushToDynamicArray(dfs, --depth);
+            PushToDynamicArray(dfsDepths, --depth);
         }
     }
     
     if (i != 0)
-        debug("воу, воу, палехчи");        
+        debug("воу, воу, палехчи");     
+        
+    SetSuffixesToDfs(NULL, evenTree->suffixArray, suffixToDfs, dfsDepths->count, &evenLeftChild);
+    SetSuffixesToDfs(NULL, oddTree->suffixArray, suffixToDfs, dfsDepths->count, &oddLeftChild);   
         
     // complete root's children building
-    CompleteNodeConstruction(&omt->nodes[0], childrenCountersBuffer, childrenBuffer);
-    omt->oddEvenNodesCount = oddEvenNodesCount;
+    CompleteOverMergedTreeNodeConstruction(&(omt->nodes[0]), childrenCountersBuffer, childrenBuffer);
     omt->oddTree = oddTree;
     omt->evenTree = evenTree;
+    
+    // complete overmerged tree's euler tour
+    omt->eulerTour = CreateOverMergedTreeEulerTour(n, dfsDepths, dfsToNode, suffixToDfs, omt);
     
     return omt;
 }
 
-SuffixTree *BuildSuffixTreeFromOverMergedTree(OverMergedTree *omt, LcpTable *lcp)
-{
-    SuffixTree *oddTree = omt->oddTree, *evenTree = omt->evenTree;
-    SuffixTree *st = CreateSuffixTree();
-    int i = 0;
+OverMergedTreeEulerTour *CreateOverMergedTreeEulerTour(int n, DynamicArray *dfsDepths, DynamicArray *dfsToNode, int *suffixToDfs, OverMergedTree *tree)
+{    
+    OverMergedTreeEulerTour *eulerTour = calloc(1, sizeof *eulerTour);
+    eulerTour->n = n;
+    eulerTour->dfsDepths = dfsDepths;
+    eulerTour->dfsToNode = dfsToNode;
+    eulerTour->suffixToDfs = suffixToDfs;
+    eulerTour->tree = tree;
     
-    while (stack isn't empty)
-    {
-        i = pop from stack
+    return eulerTour;
+}
+
+void FreeOverMergedTreeEulerTour(OverMergedTreeEulerTour *eulerTour)
+{
+    if (!eulerTour)
+        return;
         
-        if (odd/even)
+    debug("free EulerTour: started");
+    MemFree(eulerTour->suffixToDfs);
+    FreeDynamicArray(eulerTour->dfsToNode);
+    FreeDynamicArray(eulerTour->dfsDepths);
+    MemFree(eulerTour);
+    debug("free EulerTour: finished");
+}
+
+SuffixTree *BuildSuffixTreeFromOverMergedTree(OverMergedTree *omt, int *s, int n)
+{    
+    OverMergedTreeEulerTour *eulerTour = omt->eulerTour;
+    LcaTable *lcaTable = CreateLcaTable(eulerTour->dfsDepths, eulerTour->dfsToNode);
+    
+    SuffixTree *oddTree = omt->oddTree, *evenTree = omt->evenTree;
+    SuffixTree *st = CreateSuffixTree(0);
+    DynamicArray *omtStack = CreateDynamicArray(1), 
+        *stStack = CreateDynamicArray(1),
+        *childStack = CreateDynamicArray(1);
+    int iOmt, iSt, ch;
+    
+    PushToDynamicArray(omtStack, 0);
+    PushToDynamicArray(stStack, 0);
+    PushToDynamicArray(childStack, -1);
+    
+    while (omtStack->count > 0)
+    {
+        iOmt = PopFromDynamicArray(omtStack);
+        iSt = PopFromDynamicArray(stStack);
+        ch = PopFromDynamicArray(childStack);
+        
+        OverMergedTreeNode *omtNode = &(omt->nodes[iOmt]);
+        
+        if (-1 != omtNode->evenIndex && -1 != omtNode->oddIndex)
         {
-            j = GetLcp(ei + 1, oi + 1);
-            if (dj + 1 < d)
+            // odd/even node
+            int d = (0 != iOmt) 
+                ? omt->nodes[GetLcaForOverMergedTree(lcaTable, eulerTour, omtNode->evenIndex + 1, omtNode->oddIndex + 1)].depth + 1 
+                : 0;
+                
+            SuffixTreeNode 
+                *evenNode = &(evenTree->nodes[omtNode->evenIndex]), 
+                *oddNode = &(oddTree->nodes[omtNode->oddIndex]);       
+            
+            if (d < evenNode->depth)
             {
-                break edge;
-                build left branch;
-                build right branch;
+                // need to brake edge and append 2 subtree for odd and even branch separately                    
+                int j = AppendChildToSuffixTreeNode(st, iSt, ch, evenNode->from, d, -1, 2, NULL);
+                    
+                int evenFrom = evenNode->from - GetParentDepth(evenTree, omtNode->evenIndex) + d,
+                    oddFrom = oddNode->from - GetParentDepth(oddTree, omtNode->oddIndex) + d,
+                    evenBranchIndex = s[evenFrom] < s[oddFrom] ? 0 : 1;
+                
+                AppendSubtreeToSuffixTree(st, j, evenBranchIndex, evenTree, omtNode->evenIndex);
+                AppendSubtreeToSuffixTree(st, j, (evenBranchIndex + 1) & 1, oddTree, omtNode->oddIndex);
+            }
+            else
+            {            
+                // just append node and go through recursion
+                int j = AppendChildToSuffixTreeNode(st, iSt, ch, evenNode->from, evenNode->depth, evenNode->leaf, omtNode->childrenCount, NULL);
+                for (int k = 0; k < omtNode->childrenCount; ++k)
+                {
+                    PushToDynamicArray(omtStack, omtNode->children[k]);
+                    PushToDynamicArray(stStack, j);
+                    PushToDynamicArray(childStack, k);
+                }
             }
         }
         else
         {
-            copy whole branch
+            if (-1 != omtNode->evenIndex)
+                AppendSubtreeToSuffixTree(st, iSt, ch, evenTree, omtNode->evenIndex);
+            else
+                AppendSubtreeToSuffixTree(st, iSt, ch, oddTree, omtNode->oddIndex);
         }
     }
+    
+    FreeLcaTable(lcaTable);
+    return st;
+}
+
+int GetLcaForOverMergedTree(LcaTable *lcaTable, OverMergedTreeEulerTour *eulerTour, int s1, int s2) 
+{       
+    printf("(%d, %d) ", s1, s2);
+    fflush(stdout);
+    
+	int l = eulerTour->suffixToDfs[s1];
+    int r = eulerTour->suffixToDfs[s2];        
+	if (l > r)
+        Swap(&l, &r);
+        
+    return GetLca(lcaTable, l, r);
 }

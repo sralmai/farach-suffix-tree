@@ -1,4 +1,4 @@
-/* prefix tree */
+#pragma once
 
 #define EngAlphabetCardinality 28
 

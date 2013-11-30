@@ -1,7 +1,7 @@
-#include<stdlib.h>
-#include<string.h>
-#include<stdio.h>
-#include "helpers.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
 #include "lca_algo.h"
 
 
@@ -38,7 +38,7 @@ inline int MinDepth(DynamicArray *dfsDepths, int i, int j)
 	return dfsDepths->a[i] <= dfsDepths->a[j] ? i : j;
 }
 
-LcaTable *CreateLcaTable(DynamicArray *dfsDepths)
+LcaTable *CreateLcaTable(DynamicArray *dfsDepths, DynamicArray *dfsToNode)
 {
     debug("create LcaTable: started");
                 
@@ -150,6 +150,7 @@ LcaTable *CreateLcaTable(DynamicArray *dfsDepths)
 	}
         
     lcaTable->dfsDepths = dfsDepths;
+    lcaTable->dfsToNode = dfsToNode;
 	lcaTable->blockSize = blockSize;
     lcaTable->blocks = blocks;
     lcaTable->sparseTable = sparseTable;
@@ -174,10 +175,13 @@ inline int GetLcaInBlock(LcaTable *lcaTable, int bl, int l, int r)
 // answers LCA in O(1)
 int GetLca(LcaTable *lcaTable, int l, int r) 
 {    
-	int bl = l / blockSize, br = r / blockSize;
+	int 
+        blockSize = lcaTable->blockSize,
+        bl = l / blockSize, 
+        br = r / blockSize;
     
 	if (bl == br)
-		return GetLcaInBlock(lcaTable, bl, l % blockSize, r % blockSize);
+		return lcaTable->dfsToNode->a[GetLcaInBlock(lcaTable, bl, l % blockSize, r % blockSize)];
         
 	int ans1 = GetLcaInBlock(lcaTable, bl, l % blockSize, blockSize - 1);
 	int ans2 = GetLcaInBlock(lcaTable, br, 0, r % blockSize);
@@ -194,12 +198,7 @@ int GetLca(LcaTable *lcaTable, int l, int r)
             MinDepth(lcaTable->dfsDepths, ans3, ans4)
         );
 	}    
-	return ans;
-}
-
-inline int GetLcp(LcaTable *lcaTable, int l, int r)
-{
-    return lcaTable->dfsDepths[GetLca(lcaTable, l, r)];
+	return lcaTable->dfsToNode->a[ans];
 }
 
 void FreeLcaTable(LcaTable *lcaTable)
