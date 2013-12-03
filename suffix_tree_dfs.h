@@ -29,6 +29,7 @@ int GetEdgeLength(DfsPosition *p);
 int GetFirstCharOfChildEdge(DfsPosition *p);
 int GetChildIndex(DfsPosition *p);
 
+void SwapPositions(DfsPosition **px, DfsPosition **py);
 int CompareAndSwapDfsPositions(DfsPosition **ppx, DfsPosition **ppy);
 int NextStepOfDfs(DfsPosition *p, int minDepth);
 // int AppendNodeToSuffixTree(SuffixTree *st, int parent, DfsPosition *p, int copyChildren);

@@ -39,8 +39,8 @@ SuffixTree *CreateSuffixTree(int withRoot)
         
     if (withRoot)
     {
-        AllocateNextNodeIndexInSuffixTree(st);
-        st->nodes[0].leaf = -1;
+        // create default root
+        AppendChildToSuffixTreeNode(st, 0, -1, 0, 0, -1, 0, NULL);
     }
     return st;
 }
@@ -163,7 +163,7 @@ void BreakSuffixTreeEdgeByCustomLength(SuffixTree *tree, int parent, int childOr
 void AddChildToBufferAndMakeItCurrent(DynamicArray *childrenCountersBuffer, DynamicArray *childrenBuffer, int j)
 {
     //add child
-    ++(childrenCountersBuffer->count);
+    ++(*LastInDynamicArray(childrenCountersBuffer));
     PushToDynamicArray(childrenBuffer, j);
     
     //initialize new counter for this child
@@ -211,7 +211,7 @@ void CompleteSuffixTreeNodeConstruction(SuffixTreeNode *node, DynamicArray *chil
 
 /* ---------------------- CONVERTERS ------------------------ */
 
-SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa)
+SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa, int strLen)
 {
     int n = sa->n;
     int *lcp = sa->lcp, *a = sa->a;
@@ -223,11 +223,11 @@ SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa)
     PushToDynamicArray(childrenCountersBuffer, 0);
     
     //add first leaf node
-    int j = CreateAndInitializeNextSuffixTreeNode(st, 0, a[0], n - a[0], a[0]);
+    int j = CreateAndInitializeNextSuffixTreeNode(st, 0, a[0], strLen - a[0], a[0]);
     AddChildToBufferAndMakeItCurrent(childrenCountersBuffer, childrenBuffer, j);
-    
+        
     int i = 0;   
-    while (i < n)
+    while (i < n - 1)
     {
         // we go over suffix array and
         // every step we start in some node with index j and : 
@@ -255,22 +255,34 @@ SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa)
             
             if (st->nodes[j].depth < lcp[i])
             {
-                //insert node;
-                j = CreateAndInitializeNextSuffixTreeNode(st, j, a[i + 1], lcp[i], -1);
-                st->nodes[child].parent = j;
+                // insert node
+                
+                int childSuffixIndex = st->nodes[child].from - st->nodes[j].depth;
+             
+                j = CreateAndInitializeNextSuffixTreeNode(st, j, childSuffixIndex, lcp[i], -1);
+                
+                // fix old parent of @child
                 *LastInDynamicArray(childrenBuffer) = j;
-                AddChildToBufferAndMakeItCurrent(childrenCountersBuffer, childrenBuffer, j);
+                // fix @child
+                st->nodes[child].parent = j;
+                st->nodes[child].from = childSuffixIndex + lcp[i];
+                
+                // push @child to j children
+                PushToDynamicArray(childrenCountersBuffer, 1);
+                PushToDynamicArray(childrenBuffer, child);
             }
         }
         
         //add leaf node depth;
-        if (lcp[i] < n - a[i + 1])
+        if (lcp[i] < strLen - a[i + 1])
         {
-            j = CreateAndInitializeNextSuffixTreeNode(st, j, a[i + 1], n - a[i + 1], a[i + 1]);
+            j = CreateAndInitializeNextSuffixTreeNode(st, j, a[i + 1], strLen - a[i + 1], a[i + 1]);
             AddChildToBufferAndMakeItCurrent(childrenCountersBuffer, childrenBuffer, j);
         }
         else
             st->nodes[j].leaf = a[i + 1];
+            
+        ++i;
     }
     
     //complete remaining nodes
@@ -281,6 +293,7 @@ SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa)
     }
     
     st->suffixArray = sa;
+    st->leavesCount = n;
     
     return st;
 }
@@ -301,18 +314,18 @@ SuffixArray *CreateSuffixArrayFromSuffixTree(SuffixTree *st)
             d = st->nodes[i].depth;
         }
         
-        while (ch != 0 || st->nodes[i].leaf != 1)
+        while (ch != 0 || st->nodes[i].leaf == -1)
         {
             PushToDynamicArray(childStack, ch);
             i = st->nodes[i].children[ch];
             ch = 0;
         }
         
-        a[j] = st->nodes[i].from - st->nodes[i].depth;
+        a[j] = st->nodes[i].from - st->nodes[st->nodes[i].parent].depth;
         if (d != -1)
         {
             // first leaf won't count
-            lcp[j] = d;
+            lcp[j - 1] = d;
         }
         ++j;
         d = st->nodes[i].depth;
@@ -365,12 +378,23 @@ SuffixTreeEulerTour *GetSuffixTreeEulerTour(SuffixTree *st, int *suffixToRank)
         
     int *rankToDfs = malloc(n * sizeof *rankToDfs);
     DynamicArray *dfsDepths = CreateDynamicArray(2 * (n + 1)),
-        *dfsToNode = CreateDynamicArray(2 * (n + 1));                
+        *dfsToNode = CreateDynamicArray(2 * (n + 1));  
+        
+    // push root
+    PushToDynamicArray(dfsDepths, ++d);
+    PushToDynamicArray(dfsToNode, i);              
         
     while (j < n)
     {
         while (ch >= st->nodes[i].childrenCount)
         {
+            if (st->nodes[i].childrenCount > 0 && st->nodes[i].leaf != -1)
+            {
+                // end of suffix in inner node
+                rankToDfs[suffixToRank[st->nodes[i].leaf >> 1]] = dfsDepths->count - 1;
+                ++j;
+            }
+            
             i = st->nodes[i].parent;
             ch = PopFromDynamicArray(childStack) + 1;
             
@@ -378,7 +402,7 @@ SuffixTreeEulerTour *GetSuffixTreeEulerTour(SuffixTree *st, int *suffixToRank)
             PushToDynamicArray(dfsToNode, i);
         }
         
-        while (st->nodes[i].leaf != 1)
+        while (ch < st->nodes[i].childrenCount)
         {
             PushToDynamicArray(childStack, ch);
             i = st->nodes[i].children[ch];
@@ -388,25 +412,22 @@ SuffixTreeEulerTour *GetSuffixTreeEulerTour(SuffixTree *st, int *suffixToRank)
             PushToDynamicArray(dfsToNode, i);
         }
         
-        int rankOfSuffix = GetRankOfSuffix(suffixToRank, n, st->nodes[i].from - st->nodes[i].depth);
-        rankToDfs[rankOfSuffix] = dfsDepths->count - 1;
+        rankToDfs[suffixToRank[st->nodes[i].leaf >> 1]] = dfsDepths->count - 1;
         ++j;
     }
         
     debugArr(dfsDepths->a, dfsDepths->count);
-    debugArr(rankToDfs, n);
+    debugArr(dfsToNode->a, dfsToNode->count);
+    debugArr(rankToDfs, n);    
     
     debug("create EulerTour for SuffixTree: finished");
     
     return CreateSuffixTreeEulerTour(n, dfsDepths, dfsToNode, rankToDfs, suffixToRank, st);
 }
 
-int GetRankOfSuffix(int *suffixToRank, int n, int i)
+inline int GetRankOfSuffix(int *suffixToRank, int n, int i)
 {
-    i = i >> 1;
-    if (i >= n)
-        return - 1;
-    return suffixToRank[i];
+    return (i >> 1) >= n ? -1 : suffixToRank[i >> 1];
 }
 
 int GetLcpForSuffixTree(LcaTable *lcaTable, SuffixTreeEulerTour *eulerTour, int v1, int v2) 
@@ -421,12 +442,18 @@ int GetLcpForSuffixTree(LcaTable *lcaTable, SuffixTreeEulerTour *eulerTour, int 
     fflush(stdout);
     
     if (nv1 < 0 || nv2 < 0)
+    {
+        printf("\n");
+        fflush(stdout);
         return 0;
+    }
     
 	int l = eulerTour->rankToDfs[nv1];
     int r = eulerTour->rankToDfs[nv2];        
 	if (l > r)
         Swap(&l, &r);
+    
+    printf("(%d, %d) \n", l, r);
         
     return eulerTour->tree->nodes[GetLca(lcaTable, l, r)].depth;
 }

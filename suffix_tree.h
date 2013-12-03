@@ -47,7 +47,7 @@ void BreakSuffixTreeEdgeByCustomLength(SuffixTree *tree, int currentNodeIndex, i
 void AddChildToBufferAndMakeItCurrent(DynamicArray *childrenCountersBuffer, DynamicArray *childrenBuffer, int j);
 
 /* ---------------------- CONVERTERS ------------------------ */
-SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa);
+SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa, int strLen);
 SuffixArray *CreateSuffixArrayFromSuffixTree(SuffixTree *st);
 
 /* ----------- EULER TOUR FOR SUFFIX ARRAY ------------------ */

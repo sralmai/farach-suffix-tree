@@ -32,7 +32,7 @@ OverMergedTree *CreateOverMergedTree();
 void FreeOverMergedTree(OverMergedTree *omt);
 int AllocateNextNodeIndexInOverMergedTree(OverMergedTree *omt);
 int AppendNodeToOverMergedTree(OverMergedTree *omt, int parent, DfsPosition *px, DfsPosition *py);
-void SetSuffixesToDfs(SuffixTreeNode *node, SuffixArray *sa, int *suffixToDfs, int dfsIndex, int *leftChild);
+void SetSuffixesToDfs(SuffixTree *st, int ind, SuffixArray *sa, int *suffixToDfs, int dfsIndex, int *leftChild);
 OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s, int n);
 
 

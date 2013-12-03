@@ -25,6 +25,18 @@ void debugArr(int *a, int n)
     fflush(stdout);
 }
 
+void debugInt(int x)
+{
+    printf("===> %d\n", x);
+    fflush(stdout);
+}
+
+void debugIntVar(int x, const char *s)
+{
+    printf("==> %s = %d\n", s, x);
+    fflush(stdout);
+}
+
 /* -------------- Helpers ------------------ */
 
 char *ConcatStrings(const char *s1, const char *s2)

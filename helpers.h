@@ -3,7 +3,8 @@
 /* -------------- Debug Methods ------------- */
 void debug(const char *s);
 void debugArr(int *a, int n);
-
+void debugInt(int x);
+void debugIntVar(int x, const char *s);
 
 /* -------------- Helpers ------------------ */
 char *ConcatStrings(const char *s1, const char *s2);
