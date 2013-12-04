@@ -10,7 +10,7 @@ void debugIntVar(int x, const char *s);
 char *ConcatStrings(const char *s1, const char *s2);
 void MemFree(void *a);
 int Log2(int x);
-void Swap(void *x, void *y);
+void Swap(int *x, int *y);
 
 
 /* ------------ Resizeable Array ----------- */

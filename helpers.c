@@ -62,11 +62,11 @@ int Log2(int x)
 	return res;
 }
 
-void Swap(void *x, void *y)
+void Swap(int *x, int *y)
 {
-    void *t = x;
-    x = y;
-    y = t;
+    int t = *x;
+    *x = *y;
+    *y = t;
 }
 
 /* ------------ Resizeable Array ----------- */

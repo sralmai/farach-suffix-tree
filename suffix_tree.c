@@ -113,12 +113,12 @@ int AppendChildToSuffixTreeNode(SuffixTree *st, int parent, int childOrder, int 
     return i;
 }
 
-void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *tree, int root)
+void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *srcTree, int srcSubTreeRoot)
 {
-    DynamicArray *child = CreateDynamicArray(1);
-    SuffixTreeNode *srcNode = &(tree->nodes[root]);
+    DynamicArray *childStack = CreateDynamicArray(1);
+    SuffixTreeNode *srcNode = &(srcTree->nodes[srcSubTreeRoot]);
     int cur = parent, c = childOrder;
-    PushToDynamicArray(child, childOrder);
+    PushToDynamicArray(childStack, childOrder);
     
     int stopFlag = 0;
     while (1)
@@ -131,29 +131,27 @@ void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, Suffi
                 break;
             }
             
-            srcNode = &(tree->nodes[srcNode->parent]);
+            srcNode = &(srcTree->nodes[srcNode->parent]);
             cur = st->nodes[cur].parent;
             
-            PopFromDynamicArray(child);
-            c = *LastInDynamicArray(child) + 1;
+            PopFromDynamicArray(childStack);
+            c = *LastInDynamicArray(childStack) + 1;
         }
         
         if (stopFlag)
             break;
         
         cur = CopyChildToSuffixTree(st, cur, c, srcNode);
-        PushToDynamicArray(child, 0);
+        PushToDynamicArray(childStack, 0);
         c = 0;
-        srcNode = &(tree->nodes[srcNode->children[c]]);
+        srcNode = &(srcTree->nodes[srcNode->children[c]]);
     }
 }
 
 void BreakSuffixTreeEdgeByCustomLength(SuffixTree *tree, int parent, int childOrder, int edgeLen)
-{
-    SuffixTreeNode *parentNode = &(tree->nodes[parent]);    
-    int oldChild = parentNode->children[childOrder];
-    
-    int newNode = AppendChildToSuffixTreeNode(tree, parent, childOrder, tree->nodes[oldChild].from, parentNode->depth + edgeLen, -1, 1, NULL);
+{    
+    int oldChild = tree->nodes[parent].children[childOrder];    
+    int newNode = AppendChildToSuffixTreeNode(tree, parent, childOrder, tree->nodes[oldChild].from, tree->nodes[parent].depth + edgeLen, -1, 1, NULL);
     
     tree->nodes[oldChild].parent = newNode;
     tree->nodes[oldChild].from += edgeLen;
