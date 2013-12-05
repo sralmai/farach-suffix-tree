@@ -8,26 +8,22 @@
 /* ----------- Prefix tree -------------- */
 
 void InitializePrefixTree(PrefixTree *pTree, int capacity)
-{
-    debug("initialize prefix tree");
-    
+{    
     pTree->count = 0;
     pTree->capacity = capacity;
     pTree->nodes = malloc(capacity * sizeof *pTree->nodes);
-    if (!pTree->nodes)
-        debug("bad malloc in InitializePrefixTree");
-    else
-        printf("struct size: %d\n", (int)sizeof *pTree->nodes);
     
-    AllocateNextIndexInPrefixTree(pTree);
+    if (pTree->nodes)
+    {
+        AllocateNextIndexInPrefixTree(pTree);
+    }
+    else
+        printf("bad malloc in InitializePrefixTree\n");
+    
 }
 
 void FreePrefixTree(PrefixTree *pTree)
 {
-    debug("free prefix tree");
-    
-    pTree->count = 0;
-    pTree->capacity = 0;
     MemFree(pTree->nodes);
 }
 
@@ -43,7 +39,7 @@ void AllocateNextIndexInPrefixTree(PrefixTree *pTree)
             pTree->capacity = pTree->capacity << 1;
         }
         else
-            debug("bad prefix tree nodes realloc");
+            printf("bad prefix tree nodes realloc\n");
     }
     
     pTree->nodes[i].rank = -1;

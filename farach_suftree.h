@@ -12,5 +12,5 @@ SuffixTree *GetEvenSuffixTree(int *s, int n);
 SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree);
 SuffixTree *BuildSuffixTreeByFarachAlgorithm(int *s, int n);
 SuffixTree *BuildSuffixTreeByFarachAlgorithm_Release(int *s, int n);
-void TestSuffixTree(const char *testsInputFileName);
+void TestSuffixTree(SuffixTree *st, int *pattern, const char *inputFileName);
 void RadixSort(int *a, int n, int *s, int j);

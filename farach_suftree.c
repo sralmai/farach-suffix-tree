@@ -12,15 +12,20 @@
 
 /* Variables, constants, methods */
 const int DigitCapacity = 16;
-int UniqueLetter = 0;
+int UniqueLetter;
+const char *SUBSTR_PRINT = "+", *NOT_SUBSTR_PRINT = "-";
 
 PrefixTree alphabetMapping;
-int *gtempArray;
+int *globalRadixSortBuffer, *inputString;
+int inputStringLength;
+
+SuffixTree *patternSuffixTree;
 
 /* -------------- Main logic ---------------- */
 int main(int argc, char **argv)
 {
-    gtempArray = NULL;
+    DEBUG = 1;
+    inputString = NULL;
 
     int res = 0;
     
@@ -32,18 +37,11 @@ int main(int argc, char **argv)
     }
         
     Initialize(argv[1]);
+    TestSuffixTree(patternSuffixTree, inputString, argv[1]);
     
-    if (argc < 3)
-    {
-        printf("there's no file with tests");
-        res = 1;
-        goto cleanup;
-    }
-    
-    TestSuffixTree(argv[2]);
-    
-cleanup:
     FreePrefixTree(&alphabetMapping);
+    MemFree(inputString);
+    FreeSuffixTree(patternSuffixTree);
 
 out:
     return res;
@@ -57,7 +55,7 @@ void Initialize(const char *inputFileName)
     FILE *ptrFileInput = fopen(inputFileName, "r");
     FILE *ptrFileOutput = fopen(stemmedOutputFileName, "w");    
     
-    int inputStringLength = CreateAlphabetMapping(ptrFileInput, ptrFileOutput);
+    inputStringLength = CreateAlphabetMapping(ptrFileInput, ptrFileOutput);
     
     int rank = 0;
     fclose(ptrFileInput);
@@ -69,17 +67,18 @@ void Initialize(const char *inputFileName)
     ptrFileInput = fopen(stemmedOutputFileName, "r");
     ptrFileOutput = fopen(transformedOutputFileName, "w");
     
-    int *inputString = TransformInputString(ptrFileInput, ptrFileOutput, inputStringLength);
+    inputString = TransformInputString(ptrFileInput, ptrFileOutput, inputStringLength);
     fclose(ptrFileInput);
     fclose(ptrFileOutput);
     
     MemFree(stemmedOutputFileName);
     MemFree(transformedOutputFileName);
     
-    BuildSuffixTreeByFarachAlgorithm(inputString, inputStringLength);
-    
-    MemFree(inputString);
-    MemFree(gtempArray);
+    globalRadixSortBuffer = NULL;
+    patternSuffixTree = BuildSuffixTreeByFarachAlgorithm(inputString, inputStringLength);
+
+    debugInt(patternSuffixTree->count);
+    MemFree(globalRadixSortBuffer);
 }
 
 int CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput)
@@ -167,17 +166,13 @@ int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput, int inputStri
 // in Farach algorithm it's named "building an odd tree" (because of indexing from 1)
 SuffixTree *GetEvenSuffixTree(int *s, int n)
 {
-    debug("GetEvenSuffixTree: started");
     int m = (n + 1) / 2;
-    if (m == 0)
-        return CreateSuffixTree(1);
     
     int *evenS = malloc(m * sizeof *evenS);
     for (int i = 0; i < m; ++i)
         evenS[i] = 2 * i;        
     RadixSort(evenS, m, s, 1);
     RadixSort(evenS, m, s, 0);
-    debugArr(evenS, m);
     
     int k = 0;
     int *newS = malloc((m + 1) * sizeof *newS);    
@@ -187,14 +182,10 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
             ++k;
         newS[evenS[i] / 2] = k;
     }
-    newS[m] = k;    
-    debugArr(newS, m + 1);
+    newS[m] = ++k;
     
     SuffixTree *evenSubTree = BuildSuffixTreeByFarachAlgorithm(newS, m);
     SuffixArray *evenSubArray = CreateSuffixArrayFromSuffixTree(evenSubTree);
-    
-    debugArr(evenSubArray->a, m);
-    debugArr(evenSubArray->lcp, m);
     
     //no need to malloc a and lcp - just use already allocated arrays
     int *a = newS, 
@@ -204,66 +195,53 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
     
     for (int i = 0; i < m; i++)
         a[i] = 2 * subA[i];
+    a[m] = n;
+    debugArr(a, m);
     
     for (int i = 0; i < m - 1; i++)
     {
-        lcp[i] = 2 * subLcp[i];
-        
-        if (a[i] + 2 * subLcp[i] > n || a[i + 1] + 2 * subLcp[i] > n)
-        {
-            printf("CHECK borders: %d\n", i);            
-            fflush(stdout);
-        }
-        else 
-        
+        lcp[i] = 2 * subLcp[i];        
         if (s[a[i] + 2 * subLcp[i]] == s[a[i + 1] + 2 * subLcp[i]])
             ++ lcp[i];
     }
     lcp[m - 1] = 0;
+    debugArr(lcp, m - 1);
+    debugPrint("=======\n");
     
     SuffixArray *evenArray = CreateSuffixArray(lcp, a, m);
     SuffixTree *evenTree = CreateSuffixTreeFromSuffixArray(evenArray, n);
-    
-    debug("evenTree");
-    debugArr(a, m);
-    debugArr(lcp, m - 1);
-    
+        
+    // free resources
     FreeSuffixTree(evenSubTree);
     FreeSuffixArray(evenSubArray);
     
-    debug("GetEvenSuffixTree: finished");
     return evenTree;
 }
 
 // in Farach algorithm it's named "building an even tree" (because of indexing from 1)
 SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
 {
-    debug("GetOddSuffixTree: started");
-    
-    int m = n / 2;
-    if (m == 0)
-        return CreateSuffixTree(1);
-    
-    int *oddS = malloc(m * sizeof *oddS),
+    int m = n / 2;    
+    int *oddS = malloc((m + 1) * sizeof *oddS),
         *evenA = evenTree->suffixArray->a;
         
-    for (int i = 0, j = 0; i < m; i++)
+    for (int i = 0, j = 0; i < evenTree->leavesCount; i++)
     {
         if (evenA[i] > 0)
             oddS[j++] = evenA[i] - 1;
     }
     if (n % 2 == 0)
         oddS[m - 1] = n - 1;
+    else
+        oddS[m] = n;
         
     RadixSort(oddS, m, s, 0);
     debugArr(oddS, m);
+    debugPrint("~~~~~~~~\n");
         
-    int *a = malloc(m * sizeof *a), 
+    int *a = oddS, 
         *lcp = malloc(m * sizeof *lcp);
-    
-    for (int i = 0; i < m; i++)
-        a[i] = oddS[i];
-    
+        
     int evenN = evenTree->suffixArray->n;
     int *suffixToRank = malloc(evenN * sizeof *suffixToRank);
     for (int i = 0; i < evenN; i++)
@@ -284,54 +262,33 @@ SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
     SuffixArray *oddArray = CreateSuffixArray(lcp, a, m);
     SuffixTree *oddTree = CreateSuffixTreeFromSuffixArray(oddArray, n);
     
-    debug("oddTree");
-    debugArr(lcp, m - 1);
-    
-    MemFree(oddS);
+    // free resources
     FreeLcaTable(lcaTable);
     FreeSuffixTreeEulerTour(eulerTour);
     
-    debug("GetOddSuffixTree: finished");
     return oddTree;
 }
 
 SuffixTree *BuildSuffixTreeByFarachAlgorithm(int *s, int n)
 {
-    if (n > 10)
+    if (n == 0)
+        return CreateSuffixTree(1);
+    if (n == 1)
     {
-        int x[13] = {1, 2, 1, 1, 1, 2, 2, 1, 2, 2, 2, 1, 3};
-        int m = 12;
-        SuffixTree *evenTree = GetEvenSuffixTree(x, m);
-        SuffixTree *oddTree = GetOddSuffixTree(x, m, evenTree);
-        
-        OverMergedTree *omt = OverMergeTrees(evenTree, oddTree, x, m);
-        SuffixTree *st = BuildSuffixTreeFromOverMergedTree(omt, x, m);
-        
-        FreeSuffixTree(evenTree);
-        FreeSuffixTree(oddTree);
-        FreeOverMergedTree(omt);
+        SuffixTree *st = CreateSuffixTree(0);
+        // add root && child
+        AppendChildToSuffixTreeNode(st, 0, -1, 0, 0, -1, 1, NULL);
+        AppendChildToSuffixTreeNode(st, 0, 0, 0, 1, 0, 0, NULL);
+        st->leavesCount = 1;
         
         return st;
     }
     
-    SuffixArray *sa = calloc(1, sizeof *sa);
-    sa->n = 7;
-    sa->a = malloc(7 * sizeof *sa->a);
-    sa->lcp = malloc(7 * sizeof *sa->lcp);
-    int *a = sa->a, *lcp = sa->lcp;
-    a[0] = 1; a[1] = 0; a[2] = 2; a[3] = 3; a[4] = 5; a[5] = 4; a[6] = 6;
-    lcp[0] = 0; lcp[1] = 1; lcp[2] = 0; lcp[3] = 1; lcp[4] = 0; lcp[5] = 0, lcp[6] = 0;
-    
-    return CreateSuffixTreeFromSuffixArray(sa, sa->n);
-}
-
-SuffixTree *BuildSuffixTreeByFarachAlgorithm_Release(int *s, int n)
-{
     SuffixTree *evenTree = GetEvenSuffixTree(s, n);
     SuffixTree *oddTree = GetOddSuffixTree(s, n, evenTree);
     
     OverMergedTree *omt = OverMergeTrees(evenTree, oddTree, s, n);
-    SuffixTree *st = BuildSuffixTreeFromOverMergedTree(omt, s, n);
+    SuffixTree *st = BuildSuffixTreeFromOverMergedTree(omt, evenTree, oddTree, s, n);
     
     FreeSuffixTree(evenTree);
     FreeSuffixTree(oddTree);
@@ -340,15 +297,17 @@ SuffixTree *BuildSuffixTreeByFarachAlgorithm_Release(int *s, int n)
     return st;
 }
 
-void TestSuffixTree(const char *testsInputFileName)
+void TestSuffixTree(SuffixTree *st, int *pattern, const char *inputFileName)
 {
-    FILE *ptrFileInput = fopen(testsInputFileName, "r");     
+    char *testsForInputFileName = ConcatStrings(inputFileName, "tests");
+    FILE *ptrFileInput = fopen(testsForInputFileName, "r");
     
     char *buffer = malloc(DigitCapacity);
     DynamicArray *testString = CreateDynamicArray(1);
     
     int c, len;
     len = 0;
+    int testIndex = 0;
     
     while (1)
     {
@@ -367,12 +326,15 @@ void TestSuffixTree(const char *testsInputFileName)
                 len = 0;
             }
             
-            if (('$' == c || EOF == c) && testString->count > 0)
+            if ('$' == c && testString->count > 0)
             {
-                // TODO
-                testString->count = 0;
+                c = fgetc(ptrFileInput);
+                const char *expected = (c == '1') ? SUBSTR_PRINT : NOT_SUBSTR_PRINT;                
+                const char *result = IsSubstring(st, pattern, testString->a, testString->count) ? SUBSTR_PRINT : NOT_SUBSTR_PRINT;
+                printf("Test%d: %s. \t| Expected: %s \t| Got: %s\n", testIndex, (result == expected) ? "OK" : "ERR", expected, result);
                 
-                debug("OK");
+                testIndex ++;                    
+                testString->count = 0;
             }
         }
         
@@ -380,17 +342,19 @@ void TestSuffixTree(const char *testsInputFileName)
             break;
     }
     
+    // free resources
     MemFree(buffer);
     FreeDynamicArray(testString);
     
     fclose(ptrFileInput);
+    MemFree(testsForInputFileName);
 }
 
 void RadixSort(int *a, int n, int *s, int j)
 {   
     int i, maxA = s[a[0]], exp = 1;
-    if (!gtempArray)
-        gtempArray = malloc(n * sizeof *gtempArray);
+    if (!globalRadixSortBuffer)
+        globalRadixSortBuffer = malloc(n * sizeof *globalRadixSortBuffer);
             
     for (i = 1; i < n; i++)
     {
@@ -407,9 +371,9 @@ void RadixSort(int *a, int n, int *s, int j)
         for (i = 1; i < 10; i++)
             bucket[i] += bucket[i - 1];
         for (i = n - 1; i >= 0; i--)
-            gtempArray[--bucket[(s[a[i] + j] / exp) % 10]] = a[i];
+            globalRadixSortBuffer[--bucket[(s[a[i] + j] / exp) % 10]] = a[i];
         for (i = 0; i < n; i++)
-            a[i] = gtempArray[i];
+            a[i] = globalRadixSortBuffer[i];
         exp *= 10;
     }
 }

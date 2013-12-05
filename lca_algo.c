@@ -13,7 +13,7 @@ int *allocate2D(int ***arr, int n, int m)
     for(int i = 0; i < n; i++)
         (*arr)[i] = arr_data + i * m;
         
-    return arr_data; //free point
+    return arr_data;
 } 
 
 int *allocate3D(int ****arr, int ***arr2d, int n, int m, int k)
@@ -29,7 +29,7 @@ int *allocate3D(int ****arr, int ***arr2d, int n, int m, int k)
         (*arr)[i] = (*arr2d) + i * m;
     }
         
-    return arr_data; //free point
+    return arr_data;
 } 
 
 // compares two indices in a
@@ -39,9 +39,7 @@ inline int MinDepth(DynamicArray *dfsDepths, int i, int j)
 }
 
 LcaTable *CreateLcaTable(DynamicArray *dfsDepths, DynamicArray *dfsToNode)
-{
-    debug("create LcaTable: started");
-                
+{                
     /* 
         n = dfsDepths array length
         blockSize = size of block  (Log2(n) upper bounded)
@@ -109,10 +107,7 @@ LcaTable *CreateLcaTable(DynamicArray *dfsDepths, DynamicArray *dfsToNode)
     int ***rmqTable, **rmq2dTables, *rmqTableData;
     rmqTableData = allocate3D(&rmqTable, &rmq2dTables, smthLikeSqrtN, blockSize, blockSize);
 	memset(rmqTableData, -1, smthLikeSqrtN * blockSize * blockSize * sizeof *rmqTableData);
-    
-    // printf("blocks = %d, blockSize = %d\n", blocks, blockSize);
-    // fflush(stdout);
-    
+        
 	for (int i = 0; i < blocks; ++i) 
     {
 		int id = blocksHash[i];
@@ -134,11 +129,6 @@ LcaTable *CreateLcaTable(DynamicArray *dfsDepths, DynamicArray *dfsToNode)
 			}
 		}
 	}
-
-    // for (int i = 0; i < smthLikeSqrtN; i++)
-        // for (int j = 0; j < blockSize; j++)
-            // debugArr(rmqTable[i][j], blockSize);
-    // fflush(stdout);
     
 	// precalc logarithms: [i] = Log2(i) lower bounded
     int *precalcLog2 = malloc(n * sizeof *precalcLog2);
@@ -160,8 +150,6 @@ LcaTable *CreateLcaTable(DynamicArray *dfsDepths, DynamicArray *dfsToNode)
     lcaTable->rmq2dTables = rmq2dTables;
     lcaTable->rmqTableData = rmqTableData;
     lcaTable->precalcLog2 = precalcLog2;
-    
-    debug("create LcaTable: finished");
     
     return lcaTable;
 }
@@ -203,8 +191,9 @@ int GetLca(LcaTable *lcaTable, int l, int r)
 
 void FreeLcaTable(LcaTable *lcaTable)
 {
-    debug("free LcaTable: started");
-    
+    if (!lcaTable)
+        return;
+        
     MemFree(lcaTable->sparseTable);
     MemFree(lcaTable->sparseTableData);
     MemFree(lcaTable->blocksHash);
@@ -213,8 +202,6 @@ void FreeLcaTable(LcaTable *lcaTable)
     MemFree(lcaTable->rmqTableData);
     MemFree(lcaTable->precalcLog2);
     MemFree(lcaTable);
-    
-    debug("free LcaTable: finished");
 }
 
 // const int MAXN = 100*1000;

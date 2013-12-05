@@ -4,37 +4,34 @@
 
 #include "helpers.h"
 
-/* -------------- Debug Methods ------------- */
-
-void debug(const char *s)
+/* -------------- DEBUG Methods ------------- */    
+inline void debugPrint(const char *s)
 {
-    printf("==> %s\n", s);
-    fflush(stdout);
+    debugPrintf(s, NULL);
 }
-
+    
 void debugArr(int *a, int n)
 {
-    printf("[");
+    debugPrint("[");
     if (n > 0)
     {
-        printf("%d", a[0]);
+        debugPrintf("%d", a[0]);
         for (int i = 1; i < n; i++)
-            printf(", %d", a[i]);
+        {
+            debugPrintf(", %d", a[i]);
+        }
     }
-    printf("]\n");
-    fflush(stdout);
+    debugPrint("]\n");
 }
 
-void debugInt(int x)
+inline void debugInt(int x)
 {
-    printf("===> %d\n", x);
-    fflush(stdout);
+    debugPrintf("%d\n", x);
 }
 
-void debugIntVar(int x, const char *s)
+inline void debugIntVar(int x, const char *s)
 {
-    printf("==> %s = %d\n", s, x);
-    fflush(stdout);
+    debugPrintf("%s = %d\n", s, x);
 }
 
 /* -------------- Helpers ------------------ */
@@ -73,14 +70,27 @@ void Swap(int *x, int *y)
 
 DynamicArray *CreateDynamicArray(int capacity)
 {
-    DynamicArray *res = calloc(1, sizeof *res);
-    res->a = malloc(capacity * sizeof *res->a);
-    res->capacity = capacity;
-    res->count = 0;
+    DynamicArray *arr = calloc(1, sizeof *arr);
+    arr->a = malloc(capacity * sizeof *arr->a);
+    arr->capacity = capacity;
+    arr->count = 0;
     
-    return res;
+    return arr;
 }
-void AllocateNextIndexInDynamicArray(DynamicArray *arr)
+void FreeDynamicArray(DynamicArray *arr)
+{
+    if (!arr)
+        return;
+        
+    MemFree(arr->a);
+    MemFree(arr);
+}
+
+inline int *LastInDynamicArray(DynamicArray *arr)
+{
+    return (arr->a + arr->count - 1);
+}
+void PushToDynamicArray(DynamicArray *arr, int x)
 {
     if (arr->count == arr->capacity)
     {
@@ -92,24 +102,85 @@ void AllocateNextIndexInDynamicArray(DynamicArray *arr)
             arr->capacity = arr->capacity << 1;
         }
     }
-    arr->count ++;
-}
-inline int *LastInDynamicArray(DynamicArray *arr)
-{
-    return (arr->a + arr->count - 1);
-}
-void PushToDynamicArray(DynamicArray *arr, int x)
-{
-    AllocateNextIndexInDynamicArray(arr);
-    *LastInDynamicArray(arr) = x;
+    arr->a[arr->count] = x;
+    ++(arr->count);
 }
 int PopFromDynamicArray(DynamicArray *arr)
 {
     return arr->a[--(arr->count)];
 }
 
-void FreeDynamicArray(DynamicArray *arr)
+/* ------- Resizeable Circled Queue -------- */
+
+DynamicQueue *CreateDynamicQueue(int capacity)
 {
-    MemFree(arr->a);
-    MemFree(arr);
+    DynamicQueue *queue = calloc(1, sizeof *queue);
+    queue->a = malloc(capacity * sizeof *queue->a);
+    queue->capacity = capacity;
+    queue->count = 0;
+    queue->top = 0;
+    queue->bottom = 0;
+    
+    return queue;
+}
+
+void FreeDynamicQueue(DynamicQueue *queue)
+{
+    if (!queue)
+        return;
+        
+    MemFree(queue->a);
+    MemFree(queue);
+}
+
+void PushToDynamicQueue(DynamicQueue *queue, int x)
+{
+    if (queue->count == queue->capacity)
+    {
+        // double the capacity
+        int *t = realloc(queue->a, 2 * queue->capacity * sizeof *t);
+        if (t)
+        {
+            queue->a = t;
+            
+            if (queue->top <= queue->bottom)
+            {
+                if (queue->top < (queue->capacity - queue->bottom))
+                {
+                    memcpy(queue->a + queue->capacity, queue->a, queue->top * sizeof *queue->a);
+                    queue->top += queue->capacity;
+                }
+                else
+                {
+                    memcpy(queue->a + queue->bottom + queue->capacity, queue->a + queue->bottom, (queue->capacity - queue->bottom) * sizeof *queue->a);
+                    queue->bottom += queue->capacity;
+                }
+            }
+            queue->capacity = queue->capacity << 1;
+        }
+    }
+        
+    queue->a[queue->top] = x;
+    ++(queue->top);
+    ++(queue->count);
+    
+    if (queue->top == queue->capacity)
+        queue->top = 0;
+}
+
+int PopFromDynamicQueue(DynamicQueue *queue)
+{
+    int x = PeekToDynamicQueue(queue);
+    ++(queue->bottom);
+    --(queue->count);
+    
+    if (queue->bottom == queue->capacity)
+        queue->bottom = 0;
+    
+    return x;
+}
+
+inline int PeekToDynamicQueue(DynamicQueue *queue)
+{
+    return queue->a[queue->bottom];
 }

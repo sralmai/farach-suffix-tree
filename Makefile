@@ -13,7 +13,7 @@ endif
 
 .PHONY: test default all clean
 
-test: $(TARGET) tests/huckleberry_finn tests/huckleberry_finn_tests
+test: $(TARGET) tests/huckleberry_finn_
 	$+ >tests/output
 
 default: $(TARGET)

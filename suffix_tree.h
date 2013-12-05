@@ -38,13 +38,16 @@ void FreeSuffixTree(SuffixTree *st);
 
 int AllocateNextNodeIndexInSuffixTree(SuffixTree *st);
 int GetParentDepth(SuffixTree *st, int i);
+int GetSuffixForNode(SuffixTree *st, int i);
 int CopyChildToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTreeNode *node);
 int AppendChildToSuffixTreeNode(SuffixTree *st, int parent, int childOrder, int from, int depth, int leaf, int childrenCount, int *children);
 
-void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *tree, int root);
+void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *srcTree, int srcSubTreeRoot, int rootFrom);
 void BreakSuffixTreeEdgeByCustomLength(SuffixTree *tree, int currentNodeIndex, int childOrderNumber, int edgeLen);
 
 void AddChildToBufferAndMakeItCurrent(DynamicArray *childrenCountersBuffer, DynamicArray *childrenBuffer, int j);
+
+int IsSubstring(SuffixTree *st, int *pattern, int *s, int n);
 
 /* ---------------------- CONVERTERS ------------------------ */
 SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa, int strLen);

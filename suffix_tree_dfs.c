@@ -9,7 +9,7 @@ DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int ind, int treeType)
     p->treeType = treeType;
     p->s = s;
     p->ind = ind;
-    p->node = &(p->tree->nodes[ind]);
+    p->lastDfsLeaf = 0;
     
     p->lastChild = CreateDynamicArray(1);
     PushToDynamicArray(p->lastChild, 0);
@@ -19,6 +19,9 @@ DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int ind, int treeType)
 
 void FreeDfsPosition(DfsPosition *p)
 {
+    if (!p)
+        return;
+        
     FreeDynamicArray(p->lastChild);
     MemFree(p);
 }
@@ -26,24 +29,24 @@ void FreeDfsPosition(DfsPosition *p)
 /* ------------ short inline helpers ------------ */
 inline int EndOfDfs(DfsPosition *p)
 {
-    return 0 == p->node->depth && *LastInDynamicArray(p->lastChild) == p->node->childrenCount;
+    return 0 == p->ind && *LastInDynamicArray(p->lastChild) == p->tree->nodes[0].childrenCount;
 }
 
 inline int GetEdgeLength(DfsPosition *p)
 {
-    return p->tree->nodes[p->node->children[*LastInDynamicArray(p->lastChild)]].depth - p->node->depth;
+    return p->tree->nodes[p->tree->nodes[p->ind].children[*LastInDynamicArray(p->lastChild)]].depth - p->tree->nodes[p->ind].depth;
 }
 
 inline int GetFirstCharOfChildEdge(DfsPosition *p)
 {
-    return (*LastInDynamicArray(p->lastChild) < p->node->childrenCount) 
+    return (*LastInDynamicArray(p->lastChild) < p->tree->nodes[p->ind].childrenCount) 
         ? p->s[p->tree->nodes[GetChildIndex(p)].from]
-        : p->s[p->node->leaf + p->node->depth];
+        : p->s[p->tree->nodes[p->ind].leaf + p->tree->nodes[p->ind].depth];
 }
 
 inline int GetChildIndex(DfsPosition *p)
 {
-    return p->node->children[*LastInDynamicArray(p->lastChild)];
+    return p->tree->nodes[p->ind].children[*LastInDynamicArray(p->lastChild)];
 }
 /* --------------------------------------------- */
 
@@ -58,18 +61,18 @@ int CompareAndSwapDfsPositions(DfsPosition **ppx, DfsPosition **ppy)
 {
     DfsPosition *px = *ppx, *py = *ppy;
     
-    if (px->node->depth == py->node->depth)
+    if (px->tree->nodes[px->ind].depth == py->tree->nodes[py->ind].depth)
     {
         int cx = GetFirstCharOfChildEdge(px);
         int cy = GetFirstCharOfChildEdge(py);
         
-        if (cx < cy)
-            SwapPositions(&px, &py);
+        if (cx > cy)
+            SwapPositions(ppx, ppy);
         return cx != cy;
     }
     else 
     {
-        if (px->node->depth < py->node->depth)
+        if (px->tree->nodes[px->ind].depth < py->tree->nodes[py->ind].depth)
             SwapPositions(ppx, ppy);            
         return 1;
     }
@@ -77,22 +80,20 @@ int CompareAndSwapDfsPositions(DfsPosition **ppx, DfsPosition **ppy)
 
 int NextStepOfDfs(DfsPosition *p, int minDepth)
 {
-    if (*LastInDynamicArray(p->lastChild) < p->node->childrenCount)
+    if (*LastInDynamicArray(p->lastChild) < p->tree->nodes[p->ind].childrenCount)
     {
         // move down through next child edge
         p->ind = GetChildIndex(p);
-        p->node = &(p->tree->nodes[p->ind]);
         PushToDynamicArray(p->lastChild, 0);
     }
     // go upward until we can go downward in next step
-    while (*LastInDynamicArray(p->lastChild) >= p->node->childrenCount)
+    while (*LastInDynamicArray(p->lastChild) >= p->tree->nodes[p->ind].childrenCount)
     {
-        if (p->node->depth <= minDepth)
+        if (p->ind == 0 || p->tree->nodes[p->tree->nodes[p->ind].parent].depth < minDepth)
             return 0;
         
         // up to parent
-        p->ind = p->node->parent;
-        p->node = &(p->tree->nodes[p->ind]);
+        p->ind = p->tree->nodes[p->ind].parent;
         --(p->lastChild->count);
         ++(*LastInDynamicArray(p->lastChild));
     }

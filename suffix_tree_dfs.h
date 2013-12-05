@@ -1,7 +1,6 @@
 #pragma once
 #include "helpers.h"
 #include "suffix_tree.h"
-#include "suffix_tree_dfs.h"
 
 typedef struct _dfsPosition
 {
@@ -12,10 +11,12 @@ typedef struct _dfsPosition
     
     //current node
     int ind;
-    SuffixTreeNode *node;
     
     //children indexes in downward path
     DynamicArray *lastChild;
+    
+    // last dfs leaf node
+    int lastDfsLeaf;
 } DfsPosition;
 
 DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int ind, int treeType);
@@ -26,7 +27,6 @@ int GetEdgeLength(DfsPosition *p);
 int GetFirstCharOfChildEdge(DfsPosition *p);
 int GetChildIndex(DfsPosition *p);
 
-void SwapPositions(DfsPosition **px, DfsPosition **py);
+void SwapPositions(DfsPosition **ppx, DfsPosition **ppy);
 int CompareAndSwapDfsPositions(DfsPosition **ppx, DfsPosition **ppy);
 int NextStepOfDfs(DfsPosition *p, int minDepth);
-void BreakSuffixTreeEdgeByCustomLength(SuffixTree *tree, int currentNodeIndex, int childOrderNumber, int edgeLen);

@@ -1,7 +1,11 @@
 #pragma once
 
-/* -------------- Debug Methods ------------- */
-void debug(const char *s);
+/* -------------- debugPrintf Methods ------------- */
+int DEBUG;
+#define debugPrintf(fmt, ...) \
+    do { if (DEBUG) { fprintf(stdout, fmt, __VA_ARGS__); fflush(stdout); }} while (0)
+    
+void debugPrint(const char *s);
 void debugArr(int *a, int n);
 void debugInt(int x);
 void debugIntVar(int x, const char *s);
@@ -21,8 +25,23 @@ typedef struct _dynamicArray
 } DynamicArray;
 
 DynamicArray *CreateDynamicArray(int capacity);
-void AllocateNextIndexInDynamicArray(DynamicArray *arr);
+void FreeDynamicArray(DynamicArray *arr);
+
 int *LastInDynamicArray(DynamicArray *arr);
 void PushToDynamicArray(DynamicArray *arr, int x);
 int PopFromDynamicArray(DynamicArray *arr);
-void FreeDynamicArray(DynamicArray *arr);
+
+
+/* ------- Resizeable Circled Queue -------- */
+typedef struct _dynamicQueue
+{
+    int top, bottom, count, capacity;
+    int *a;
+} DynamicQueue;
+
+DynamicQueue *CreateDynamicQueue(int capacity);
+void FreeDynamicQueue(DynamicQueue *queue);
+
+void PushToDynamicQueue(DynamicQueue *queue, int x);
+int PopFromDynamicQueue(DynamicQueue *queue);
+int PeekToDynamicQueue(DynamicQueue *queue);
