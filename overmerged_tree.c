@@ -80,11 +80,11 @@ void SetSuffixesToDfsByPosition(DfsPosition *p, int *suffixToDfs, int dfsIndex)
 }
 void SetSuffixesToDfs(SuffixTree *st, int parent, int childIndex, SuffixArray *sa, int *suffixToDfs, int dfsIndex, int *lastDfsLeaf)
 {
-    int rightSuffix = childIndex >= st->nodes[parent].childrenCount ? sa->n : st->nodes[st->nodes[parent].children[childIndex]].from - st->nodes[parent].depth;
-    suffixToDfs[rightSuffix] = dfsIndex;
+    int currentSuffix = childIndex >= st->nodes[parent].childrenCount ? sa->a[sa->n] : st->nodes[st->nodes[parent].children[childIndex]].from - st->nodes[parent].depth;
+    suffixToDfs[currentSuffix] = dfsIndex;
     int prevDfsIndex = suffixToDfs[sa->a[*lastDfsLeaf]];
     
-    while (*lastDfsLeaf < sa->n && sa->a[*lastDfsLeaf] != rightSuffix)
+    while (*lastDfsLeaf < sa->n && sa->a[*lastDfsLeaf] != currentSuffix)
     {
         suffixToDfs[sa->a[*lastDfsLeaf]] = prevDfsIndex;
         ++(*lastDfsLeaf);

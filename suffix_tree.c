@@ -123,29 +123,44 @@ void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, Suffi
 {
     DynamicArray *childStack = CreateDynamicArray(1);
     SuffixTreeNode *srcNode = &(srcTree->nodes[srcSubTreeRoot]);
+    PushToDynamicArray(childStack, childOrder);
+    
     int cur = AppendChildToSuffixTreeNode(st, parent, childOrder, rootFrom, srcNode->depth, srcNode->leaf, srcNode->childrenCount, NULL);
     PushToDynamicArray(childStack, 0);
     
     while (1)
     {
-        while (*LastInDynamicArray(childStack) >= st->nodes[cur].childrenCount)
+        if (*LastInDynamicArray(childStack) < st->nodes[cur].childrenCount)
+        {
+            srcNode = &(srcTree->nodes[srcNode->children[*LastInDynamicArray(childStack)]]);
+            int from = srcNode->from;
+            
+            // skip 'em
+            while (srcNode->childrenCount == 1 && srcNode->leaf == -1)
+            {
+                int child = srcNode->children[0];
+                srcTree->nodes[srcNode->parent].children[*LastInDynamicArray(childStack)] = child;
+                srcTree->nodes[child].parent = srcNode->parent;
+                
+                srcNode = &(srcTree->nodes[child]);
+            }
+                
+            cur = AppendChildToSuffixTreeNode(st, cur, *LastInDynamicArray(childStack), from, srcNode->depth, srcNode->leaf, srcNode->childrenCount, NULL);
+            PushToDynamicArray(childStack, 0);
+        }
+        else
         {
             if (st->nodes[cur].parent == parent)
-                goto _mem_free;
+                break;
             
             srcNode = &(srcTree->nodes[srcNode->parent]);
             cur = st->nodes[cur].parent;
             
             PopFromDynamicArray(childStack);
             ++(*LastInDynamicArray(childStack));
-        }
-        
-        srcNode = &(srcTree->nodes[srcNode->children[*LastInDynamicArray(childStack)]]);
-        cur = CopyChildToSuffixTree(st, cur, *LastInDynamicArray(childStack), srcNode);
-        PushToDynamicArray(childStack, 0);
+        }        
     }
     
-_mem_free:
     FreeDynamicArray(childStack);
 }
 
