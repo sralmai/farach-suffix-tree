@@ -14,3 +14,7 @@ SuffixTree *BuildSuffixTreeByFarachAlgorithm(int *s, int n);
 SuffixTree *BuildSuffixTreeByFarachAlgorithm_Release(int *s, int n);
 void TestSuffixTree(SuffixTree *st, int *pattern, const char *inputFileName);
 void RadixSort(int *a, int n, int *s, int j);
+
+
+void SetTimerStart();
+double GetTimeRange();

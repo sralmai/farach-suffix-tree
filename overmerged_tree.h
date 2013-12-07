@@ -14,6 +14,9 @@ typedef struct _overMegedTreeNode
     int *children;
     int childrenCount;
     int depth;
+    
+    int linkToResultNode;
+    int evenSuffix, oddSuffix, realDepth;
 } OverMergedTreeNode;
 
 typedef struct _overMegedTree
@@ -22,8 +25,6 @@ typedef struct _overMegedTree
     OverMergedTreeNode *nodes;
     
     OverMergedTreeEulerTour *eulerTour;
-    
-    SuffixTree *evenTree, *oddTree;
 } OverMergedTree;
 
 OverMergedTree *CreateOverMergedTree();
@@ -37,6 +38,7 @@ void SetSuffixesToDfsByPosition(DfsPosition *p, int *suffixToDfs, int dfsIndex);
 void SetSuffixesToDfs(SuffixTree *st, int parent, int childIndex, SuffixArray *sa, int *suffixToDfs, int dfsIndex, int *lastDfsLeaf);
 
 OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s, int n);
+void SetSuffixesForLcaProblem(OverMergedTree *omt, int ind, SuffixTree *evenTree, SuffixTree *oddTree);
 
 /* ----------------- OVERMERGED SUFFIX TREE EULER TOUR ------------------ */
 struct _overMergedTreeEulerTour
@@ -51,5 +53,6 @@ struct _overMergedTreeEulerTour
 OverMergedTreeEulerTour *CreateOverMergedTreeEulerTour(int n, DynamicArray *dfsDepths, DynamicArray *dfsToNode, int *suffixToDfsDepths, OverMergedTree *tree);
 void FreeOverMergedTreeEulerTour(OverMergedTreeEulerTour *eulerTour);
 
+void BuildLcpTreeOnOverMergedTree(OverMergedTree *omt, OverMergedTreeEulerTour *eulerTour, SuffixTree *evenTree, SuffixTree *oddTree);
 SuffixTree *BuildSuffixTreeFromOverMergedTree(OverMergedTree *omt, SuffixTree *evenTree, SuffixTree *oddTree, int *s, int n);
 int GetLcaForOverMergedTree(LcaTable *lcaTable, OverMergedTreeEulerTour *eulerTour, int s1, int s2);

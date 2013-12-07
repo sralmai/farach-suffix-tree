@@ -7,6 +7,9 @@ typedef struct _suffixArray
 {
     int n;
     int *lcp, *a;
+    
+    // optional - only for even and odd tree
+    int *suffixToRank;
 } SuffixArray;
 
 
@@ -18,6 +21,7 @@ typedef struct _suffixTreeNode
 {
     // depth - depth of node
     // from = suffixIndex + parentDepth
+    // leaf (if != -1) + depth === length of string
     
     int parent, from, depth, leaf;
     
@@ -30,6 +34,7 @@ typedef struct _suffixTree
     int count, capacity, leavesCount;
     SuffixTreeNode *nodes;
     
+    // optional
     SuffixArray *suffixArray;
 } SuffixTree;
 
@@ -42,7 +47,7 @@ int GetSuffixForNode(SuffixTree *st, int i);
 int CopyChildToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTreeNode *node);
 int AppendChildToSuffixTreeNode(SuffixTree *st, int parent, int childOrder, int from, int depth, int leaf, int childrenCount, int *children);
 
-void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *srcTree, int srcSubTreeRoot, int rootFrom);
+int AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *srcTree, int srcSubTreeRoot, int rootFrom);
 void BreakSuffixTreeEdgeByCustomLength(SuffixTree *tree, int currentNodeIndex, int childOrderNumber, int edgeLen);
 
 void AddChildToBufferAndMakeItCurrent(DynamicArray *childrenCountersBuffer, DynamicArray *childrenBuffer, int j);
@@ -58,11 +63,13 @@ typedef struct _suffixTreeEulerTour
 {
     int n;
     DynamicArray *dfsDepths, *dfsToNode;
-    int *rankToDfs, *suffixToRank;
+    int *rankToDfs;
     
+    // external links
     SuffixTree *tree;
+    int *suffixToRank;
 } SuffixTreeEulerTour;
 
-SuffixTreeEulerTour *GetSuffixTreeEulerTour(SuffixTree *st, int *suffixToRank);
+SuffixTreeEulerTour *GetSuffixTreeEulerTour(SuffixTree *st);
 void FreeSuffixTreeEulerTour(SuffixTreeEulerTour *eulerTour);
 int GetLcpForSuffixTree(LcaTable *lcaTable, SuffixTreeEulerTour *eulerTour, int v1, int v2);

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <windows.h>
 
 #include "helpers.h"
 #include "prefix_tree.h"
@@ -14,6 +15,11 @@
 const int DigitCapacity = 16;
 int UniqueLetter;
 const char *SUBSTR_PRINT = "+", *NOT_SUBSTR_PRINT = "-";
+
+/* TIMER VARIABLES */
+LARGE_INTEGER frequency;
+LARGE_INTEGER start;
+LARGE_INTEGER end;
 
 PrefixTree alphabetMapping;
 int *globalRadixSortBuffer, *inputString;
@@ -68,16 +74,19 @@ void Initialize(const char *inputFileName)
     ptrFileOutput = fopen(transformedOutputFileName, "w");
     
     inputString = TransformInputString(ptrFileInput, ptrFileOutput, inputStringLength);
+    
     fclose(ptrFileInput);
     fclose(ptrFileOutput);
     
     MemFree(stemmedOutputFileName);
     MemFree(transformedOutputFileName);
     
-    globalRadixSortBuffer = NULL;
+    globalRadixSortBuffer = NULL;    
+    SetTimerStart();
     patternSuffixTree = BuildSuffixTreeByFarachAlgorithm(inputString, inputStringLength);
-
-    debugInt(patternSuffixTree->count);
+    printf("suffix tree building took %fs\n", GetTimeRange());
+    printf("suffix tree has %d nodes\n", patternSuffixTree->count);
+    
     MemFree(globalRadixSortBuffer);
 }
 
@@ -116,7 +125,7 @@ int CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput)
         if (EOF == c)
             break;
     }    
-    printf("number of prefix tree nodes: %d\n", alphabetMapping.count);    
+    printf("prefix tree has %d nodes\n", alphabetMapping.count);    
     MemFree(buffer);
 
     return inputStringLength;
@@ -124,7 +133,7 @@ int CreateAlphabetMapping(FILE *ptrFileInput, FILE *ptrFileOutput)
 
 int *TransformInputString(FILE *ptrFileInput, FILE *ptrFileOutput, int inputStringLength)
 {
-    printf("transformed input string have %d letters\n", inputStringLength);
+    printf("transformed input string has %d letters\n", inputStringLength);
     
     char *buffer = malloc(DigitCapacity);
     
@@ -196,7 +205,7 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
     for (int i = 0; i < m; i++)
         a[i] = 2 * subA[i];
     a[m] = n;
-    debugArr(a, m);
+    // debugArr(a, m);
     
     for (int i = 0; i < m - 1; i++)
     {
@@ -205,10 +214,15 @@ SuffixTree *GetEvenSuffixTree(int *s, int n)
             ++ lcp[i];
     }
     lcp[m - 1] = 0;
-    debugArr(lcp, m - 1);
-    debugPrint("=======\n");
+    // debugArr(lcp, m - 1);
+    // debugPrint("=======\n");
+    
+    int *suffixToRank = malloc(m * sizeof *suffixToRank);
+    for (int i = 0; i < m; i++)
+        suffixToRank[a[i] >> 1] = i;    
     
     SuffixArray *evenArray = CreateSuffixArray(lcp, a, m);
+    evenArray->suffixToRank = suffixToRank;
     SuffixTree *evenTree = CreateSuffixTreeFromSuffixArray(evenArray, n);
         
     // free resources
@@ -236,18 +250,13 @@ SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
         oddS[m] = n;
         
     RadixSort(oddS, m, s, 0);
-    debugArr(oddS, m);
-    debugPrint("~~~~~~~~\n");
+    // debugArr(oddS, m);
+    // debugPrint("~~~~~~~~\n");
         
     int *a = oddS, 
         *lcp = malloc(m * sizeof *lcp);
-        
-    int evenN = evenTree->suffixArray->n;
-    int *suffixToRank = malloc(evenN * sizeof *suffixToRank);
-    for (int i = 0; i < evenN; i++)
-        suffixToRank[evenA[i] / 2] = i;
-    
-    SuffixTreeEulerTour *eulerTour = GetSuffixTreeEulerTour(evenTree, suffixToRank);        
+            
+    SuffixTreeEulerTour *eulerTour = GetSuffixTreeEulerTour(evenTree);
     LcaTable *lcaTable = CreateLcaTable(eulerTour->dfsDepths, eulerTour->dfsToNode);
         
     for (int i = 0; i < m - 1; i++)
@@ -258,8 +267,13 @@ SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
             lcp[i] = 0;
     }        
     lcp[m - 1] = 0;
+    
+    int *suffixToRank = malloc(m * sizeof *suffixToRank);
+    for (int i = 0; i < m; i++)
+        suffixToRank[a[i] >> 1] = i;
         
     SuffixArray *oddArray = CreateSuffixArray(lcp, a, m);
+    oddArray->suffixToRank = suffixToRank;
     SuffixTree *oddTree = CreateSuffixTreeFromSuffixArray(oddArray, n);
     
     // free resources
@@ -376,4 +390,16 @@ void RadixSort(int *a, int n, int *s, int j)
             a[i] = globalRadixSortBuffer[i];
         exp *= 10;
     }
+}
+
+void SetTimerStart()
+{
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&start);
+}
+
+double GetTimeRange()
+{
+    QueryPerformanceCounter(&end);
+    return (double) (end.QuadPart - start.QuadPart) / frequency.QuadPart;    
 }

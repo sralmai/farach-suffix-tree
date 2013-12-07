@@ -22,6 +22,7 @@ void FreeSuffixArray(SuffixArray *sa)
     
     MemFree(sa->lcp);
     MemFree(sa->a);
+    MemFree(sa->suffixToRank);
     MemFree(sa);
 }
 
@@ -119,13 +120,14 @@ int AppendChildToSuffixTreeNode(SuffixTree *st, int parent, int childOrder, int 
     return i;
 }
 
-void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *srcTree, int srcSubTreeRoot, int rootFrom)
+int AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, SuffixTree *srcTree, int srcSubTreeRoot, int rootFrom)
 {
     DynamicArray *childStack = CreateDynamicArray(1);
     SuffixTreeNode *srcNode = &(srcTree->nodes[srcSubTreeRoot]);
     PushToDynamicArray(childStack, childOrder);
     
     int cur = AppendChildToSuffixTreeNode(st, parent, childOrder, rootFrom, srcNode->depth, srcNode->leaf, srcNode->childrenCount, NULL);
+    int root = cur;
     PushToDynamicArray(childStack, 0);
     
     while (1)
@@ -162,6 +164,7 @@ void AppendSubtreeToSuffixTree(SuffixTree *st, int parent, int childOrder, Suffi
     }
     
     FreeDynamicArray(childStack);
+    return root;
 }
 
 void BreakSuffixTreeEdgeByCustomLength(SuffixTree *tree, int parent, int childOrder, int edgeLen)
@@ -368,7 +371,7 @@ SuffixArray *CreateSuffixArrayFromSuffixTree(SuffixTree *st)
         {
             if (st->nodes[i].leaf != -1)
             {
-                a[j] = GetSuffixForNode(st, i);
+                a[j] = st->nodes[i].leaf;
                 if (j > 0) 
                     lcp[j - 1] = d;
                 ++j;
@@ -417,12 +420,12 @@ void FreeSuffixTreeEulerTour(SuffixTreeEulerTour *eulerTour)
     FreeDynamicArray(eulerTour->dfsDepths);
     
     MemFree(eulerTour->rankToDfs);
-    MemFree(eulerTour->suffixToRank);
     MemFree(eulerTour);
 }
 
-SuffixTreeEulerTour *GetSuffixTreeEulerTour(SuffixTree *st, int *suffixToRank)
+SuffixTreeEulerTour *GetSuffixTreeEulerTour(SuffixTree *st)
 {
+    int *suffixToRank = st->suffixArray->suffixToRank;
     DynamicArray *childStack = CreateDynamicArray(1);
     int i = 0, ch = 0, j = 0, d = -1, n = st->leavesCount;
         
