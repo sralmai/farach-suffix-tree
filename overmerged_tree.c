@@ -27,9 +27,7 @@ void FreeOverMergedTree(OverMergedTree *omt)
         
     for (int i = 0; i < omt->count; i++)
         MemFree(omt->nodes[i].children);
-    MemFree(omt->nodes);
-    
-    FreeOverMergedTreeEulerTour(omt->eulerTour);
+    MemFree(omt->nodes);    
     MemFree(omt);
 }
 
@@ -345,6 +343,7 @@ void BuildLcpTreeOnOverMergedTree(OverMergedTree *omt, OverMergedTreeEulerTour *
     
     FreeDynamicArray(childStack);
     FreeLcaTable(lcaTable);
+    FreeOverMergedTreeEulerTour(eulerTour);
 }
 
 SuffixTree *BuildSuffixTreeFromOverMergedTree(OverMergedTree *omt, SuffixTree *evenTree, SuffixTree *oddTree, int *s, int n)
