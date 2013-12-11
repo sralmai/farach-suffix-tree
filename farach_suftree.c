@@ -31,6 +31,8 @@ SuffixTree *patternSuffixTree;
 int main(int argc, char **argv)
 {
     DEBUG = 1;
+    DYNAMIC_ARRAY_MIN_CAPACITY = 16;
+    
     inputString = NULL;
 
     int res = 0;
@@ -286,10 +288,10 @@ SuffixTree *GetOddSuffixTree(int *s, int n, SuffixTree *evenTree)
 SuffixTree *BuildSuffixTreeByFarachAlgorithm(int *s, int n)
 {
     if (n == 0)
-        return CreateSuffixTree(1);
+        return CreateSuffixTree(1, 1);
     if (n == 1)
     {
-        SuffixTree *st = CreateSuffixTree(0);
+        SuffixTree *st = CreateSuffixTree(2, 0);
         // add root && child
         AppendChildToSuffixTreeNode(st, 0, -1, 0, 0, -1, 1, NULL);
         AppendChildToSuffixTreeNode(st, 0, 0, 0, 1, 0, 0, NULL);

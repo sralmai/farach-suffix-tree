@@ -7,7 +7,7 @@ typedef struct _dfsPosition
     SuffixTree *tree;
     int treeType;
     //string
-    int *s;
+    int *s, n;
     
     //current node
     int ind;
@@ -19,7 +19,7 @@ typedef struct _dfsPosition
     int lastDfsLeaf;
 } DfsPosition;
 
-DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int ind, int treeType);
+DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int n, int ind, int treeType);
 void FreeDfsPosition(DfsPosition *p);
 
 int EndOfDfs(DfsPosition *p);

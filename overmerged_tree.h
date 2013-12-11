@@ -27,7 +27,6 @@ typedef struct _overMegedTree
     OverMergedTreeEulerTour *eulerTour;
 } OverMergedTree;
 
-OverMergedTree *CreateOverMergedTree();
 void FreeOverMergedTree(OverMergedTree *omt);
 
 int AllocateNextNodeIndexInOverMergedTree(OverMergedTree *omt);

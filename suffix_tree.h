@@ -38,7 +38,7 @@ typedef struct _suffixTree
     SuffixArray *suffixArray;
 } SuffixTree;
 
-SuffixTree *CreateSuffixTree(int withRoot);
+SuffixTree *CreateSuffixTree(int capacity, int withRoot);
 void FreeSuffixTree(SuffixTree *st);
 
 int AllocateNextNodeIndexInSuffixTree(SuffixTree *st);

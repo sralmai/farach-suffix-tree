@@ -4,14 +4,14 @@
 
 
 /* --------- internal methods ---------- */
-OverMergedTree *CreateOverMergedTree();
+OverMergedTree *CreateOverMergedTree(int capacity);
 /* ------------------------------------- */
 
-OverMergedTree *CreateOverMergedTree()
+OverMergedTree *CreateOverMergedTree(int capacity)
 {
     OverMergedTree *omt = calloc(1, sizeof *omt);
     omt->count = 0;
-    omt->capacity = 1;
+    omt->capacity = capacity;
     omt->nodes = malloc(omt->capacity * sizeof *omt->nodes);
     
     if (!omt->nodes)
@@ -115,10 +115,10 @@ void CompleteOverMergedTreeNodeConstruction(OverMergedTreeNode *node, DynamicArr
 
 OverMergedTree *OverMergeTrees(SuffixTree *evenTree, SuffixTree *oddTree, int *s, int n)
 {
-    OverMergedTree *omt = CreateOverMergedTree();
+    OverMergedTree *omt = CreateOverMergedTree(2 * n);
     
     DynamicArray *childrenCountersBuffer = CreateDynamicArray(1), *childrenBuffer = CreateDynamicArray(1);    
-    DfsPosition *px = CreateDfsPosition(evenTree, s, 0, 0), *py = CreateDfsPosition(oddTree, s, 0, 1);
+    DfsPosition *px = CreateDfsPosition(evenTree, s, n, 0, 0), *py = CreateDfsPosition(oddTree, s, n, 0, 1);
     
     // euler tour structures
     DynamicArray *dfsToNode = CreateDynamicArray(1), *dfsDepths = CreateDynamicArray(1);    
@@ -349,7 +349,7 @@ void BuildLcpTreeOnOverMergedTree(OverMergedTree *omt, OverMergedTreeEulerTour *
 
 SuffixTree *BuildSuffixTreeFromOverMergedTree(OverMergedTree *omt, SuffixTree *evenTree, SuffixTree *oddTree, int *s, int n)
 {      
-    SuffixTree *st = CreateSuffixTree(0);
+    SuffixTree *st = CreateSuffixTree(2 * n, 0);
     DynamicQueue *omtQueue = CreateDynamicQueue(1), 
         *stQueue = CreateDynamicQueue(1),
         *childQueue = CreateDynamicQueue(1);
@@ -364,10 +364,7 @@ SuffixTree *BuildSuffixTreeFromOverMergedTree(OverMergedTree *omt, SuffixTree *e
         iOmt = PopFromDynamicQueue(omtQueue);
         iSt = PopFromDynamicQueue(stQueue);
         ch = PopFromDynamicQueue(childQueue);
-        
-        // if (n == 380849)
-            // debugPrintf("%d ", iOmt);
-        
+                
         OverMergedTreeNode *omtNode = &(omt->nodes[iOmt]);
         
         if (-1 != omtNode->evenIndex && -1 != omtNode->oddIndex)

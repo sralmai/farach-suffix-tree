@@ -1,7 +1,7 @@
 #pragma once
 
 /* -------------- debugPrintf Methods ------------- */
-int DEBUG;
+int DEBUG, DYNAMIC_ARRAY_MIN_CAPACITY;
 #define debugPrintf(fmt, ...) \
     do { if (DEBUG) { fprintf(stdout, fmt, __VA_ARGS__); fflush(stdout); }} while (0)
     

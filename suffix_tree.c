@@ -28,11 +28,11 @@ void FreeSuffixArray(SuffixArray *sa)
 
 
 /* ---------------------- SUFFIX TREE ------------------------ */
-SuffixTree *CreateSuffixTree(int withRoot)
+SuffixTree *CreateSuffixTree(int capacity, int withRoot)
 {
     SuffixTree *st = calloc(1, sizeof *st);
     st->count = 0;
-    st->capacity = 1;
+    st->capacity = capacity;
     st->leavesCount = 0;
     st->nodes = malloc(st->capacity * sizeof *st->nodes);
     
@@ -263,7 +263,7 @@ SuffixTree *CreateSuffixTreeFromSuffixArray(SuffixArray *sa, int strLen)
     int n = sa->n;
     int *lcp = sa->lcp, *a = sa->a;
     
-    SuffixTree *st = CreateSuffixTree(1);
+    SuffixTree *st = CreateSuffixTree(2 * n, 1);
     DynamicArray *childrenCountersBuffer = CreateDynamicArray(1), *childrenBuffer = CreateDynamicArray(1);
     
     // root

@@ -71,6 +71,8 @@ void Swap(int *x, int *y)
 DynamicArray *CreateDynamicArray(int capacity)
 {
     DynamicArray *arr = calloc(1, sizeof *arr);
+    if (capacity < DYNAMIC_ARRAY_MIN_CAPACITY)
+        capacity = DYNAMIC_ARRAY_MIN_CAPACITY;
     arr->a = malloc(capacity * sizeof *arr->a);
     arr->capacity = capacity;
     arr->count = 0;
@@ -115,8 +117,11 @@ int PopFromDynamicArray(DynamicArray *arr)
 DynamicQueue *CreateDynamicQueue(int capacity)
 {
     DynamicQueue *queue = calloc(1, sizeof *queue);
-    queue->a = malloc(capacity * sizeof *queue->a);
+    
+    if (capacity < DYNAMIC_ARRAY_MIN_CAPACITY)
+        capacity = DYNAMIC_ARRAY_MIN_CAPACITY;
     queue->capacity = capacity;
+    queue->a = malloc(capacity * sizeof *queue->a);
     queue->count = 0;
     queue->top = 0;
     queue->bottom = 0;

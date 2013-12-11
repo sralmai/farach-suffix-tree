@@ -2,12 +2,13 @@
 #include "suffix_tree_dfs.h"
 #include "helpers.h"
 
-DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int ind, int treeType)
+DfsPosition *CreateDfsPosition(SuffixTree *st, int *s, int n, int ind, int treeType)
 {
     DfsPosition *p = calloc(1, sizeof *p);
     p->tree = st;
     p->treeType = treeType;
     p->s = s;
+    p->n = n;
     p->ind = ind;
     p->lastDfsLeaf = 0;
     
@@ -34,14 +35,14 @@ inline int EndOfDfs(DfsPosition *p)
 
 inline int GetEdgeLength(DfsPosition *p)
 {
-    return p->tree->nodes[p->tree->nodes[p->ind].children[*LastInDynamicArray(p->lastChild)]].depth - p->tree->nodes[p->ind].depth;
+    return p->tree->nodes[GetChildIndex(p)].depth - p->tree->nodes[p->ind].depth;
 }
 
 inline int GetFirstCharOfChildEdge(DfsPosition *p)
 {
-    return (*LastInDynamicArray(p->lastChild) < p->tree->nodes[p->ind].childrenCount) 
+    return *LastInDynamicArray(p->lastChild) < p->tree->nodes[p->ind].childrenCount
         ? p->s[p->tree->nodes[GetChildIndex(p)].from]
-        : p->s[p->tree->nodes[p->ind].leaf + p->tree->nodes[p->ind].depth];
+        : p->s[p->n];
 }
 
 inline int GetChildIndex(DfsPosition *p)

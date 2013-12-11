@@ -1,7 +1,7 @@
 TARGET = farach_suftree
 LIBS = -lm
 CC = gcc
-CFLAGS = -g -Wall -std=c99 -pedantic-errors
+CFLAGS = -Wall -std=c99 -pedantic-errors
 
 REMOVECOMMAND = rm
 TARGETEXECUTABLE = $(TARGET)
