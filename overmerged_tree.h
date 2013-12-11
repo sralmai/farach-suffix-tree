@@ -23,8 +23,6 @@ typedef struct _overMegedTree
 {
     int count, capacity;
     OverMergedTreeNode *nodes;
-    
-    OverMergedTreeEulerTour *eulerTour;
 } OverMergedTree;
 
 void FreeOverMergedTree(OverMergedTree *omt);
