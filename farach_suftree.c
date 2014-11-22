@@ -317,6 +317,8 @@ void TestSuffixTree(SuffixTree *st, int *pattern, const char *inputFileName)
 {
     char *testsForInputFileName = ConcatStrings(inputFileName, "tests");
     FILE *ptrFileInput = fopen(testsForInputFileName, "r");
+    if (!ptrFileInput)
+        goto free_tests_file_name;
     
     char *buffer = malloc(DigitCapacity);
     DynamicArray *testString = CreateDynamicArray(1);
@@ -363,6 +365,8 @@ void TestSuffixTree(SuffixTree *st, int *pattern, const char *inputFileName)
     FreeDynamicArray(testString);
     
     fclose(ptrFileInput);
+
+free_tests_file_name:
     MemFree(testsForInputFileName);
 }
 
