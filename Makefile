@@ -14,7 +14,7 @@ endif
 .PHONY: test default all clean
 
 test: $(TARGET) tests/huckleberry_finn_
-	$+ >tests/output
+	./$+ >tests/output
 
 default: $(TARGET)
 all: default

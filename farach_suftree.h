@@ -16,5 +16,7 @@ void TestSuffixTree(SuffixTree *st, int *pattern, const char *inputFileName);
 void RadixSort(int *a, int n, int *s, int j);
 
 
+#ifdef _WIN32
 void SetTimerStart();
 double GetTimeRange();
+#endif

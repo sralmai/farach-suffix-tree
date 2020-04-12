@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 #include "helpers.h"
 #include "prefix_tree.h"
@@ -16,10 +18,12 @@ const int DigitCapacity = 16;
 int UniqueLetter;
 const char *SUBSTR_PRINT = "+", *NOT_SUBSTR_PRINT = "-";
 
+#ifdef _WIN32
 /* TIMER VARIABLES */
 LARGE_INTEGER frequency;
 LARGE_INTEGER start;
 LARGE_INTEGER end;
+#endif
 
 PrefixTree alphabetMapping;
 int *globalRadixSortBuffer, *inputString;
@@ -84,9 +88,13 @@ void Initialize(const char *inputFileName)
     MemFree(transformedOutputFileName);
     
     globalRadixSortBuffer = NULL;    
+#ifdef _WIN32
     SetTimerStart();
+#endif
     patternSuffixTree = BuildSuffixTreeByFarachAlgorithm(inputString, inputStringLength);
+#ifdef _WIN32
     printf("suffix tree building took %fs\n", GetTimeRange());
+#endif
     printf("suffix tree has %d nodes\n", patternSuffixTree->count);
     
     MemFree(globalRadixSortBuffer);
@@ -398,6 +406,7 @@ void RadixSort(int *a, int n, int *s, int j)
     }
 }
 
+#ifdef _WIN32
 void SetTimerStart()
 {
     QueryPerformanceFrequency(&frequency);
@@ -407,5 +416,6 @@ void SetTimerStart()
 double GetTimeRange()
 {
     QueryPerformanceCounter(&end);
-    return (double) (end.QuadPart - start.QuadPart) / frequency.QuadPart;    
+    return (double) (end.QuadPart - start.QuadPart) / frequency.QuadPart;
 }
+#endif
